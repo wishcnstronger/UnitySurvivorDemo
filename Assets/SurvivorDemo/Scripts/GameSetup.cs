@@ -36,36 +36,7 @@ namespace SurvivorDemo
         {
             CreateGround();
             CreatePlayer();
-            CreateTestEnemy(); // Phase2 测试用，生成一个敌人
             SetupCamera();
-        }
-
-        /// <summary>生成一个测试敌人，验证 Enemy 系统正常工作</summary>
-        private void CreateTestEnemy()
-        {
-            GameObject enemy = new GameObject("Enemy_Test");
-
-            // SpriteRenderer —— 红色圆形
-            SpriteRenderer sr = enemy.AddComponent<SpriteRenderer>();
-            sr.sprite = CreateCircleSprite(Color.red, 32);
-            sr.sortingOrder = 1;
-
-            // Rigidbody2D
-            Rigidbody2D rb = enemy.AddComponent<Rigidbody2D>();
-            rb.gravityScale = 0f;
-            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-
-            // CircleCollider2D
-            CircleCollider2D col = enemy.AddComponent<CircleCollider2D>();
-            col.radius = 0.5f;
-            col.isTrigger = true;
-
-            // EnemyMovement
-            EnemyMovement movement = enemy.AddComponent<EnemyMovement>();
-            movement.moveSpeed = 2f;
-
-            // 生成在玩家右上方
-            enemy.transform.position = new Vector3(5f, 3f, 0f);
         }
 
         private void CreateGround()
