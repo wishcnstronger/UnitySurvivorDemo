@@ -1,0 +1,71 @@
+# ====================
+# Unity / Tuanjie
+# ====================
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Asset Store tools (should not be tracked)
+**/Assets/AssetStoreTools*/
+
+# Plastic SCM plugins
+**/Assets/Plugins/PlasticSCM*/
+.plastic/
+
+# Addressables binary data
+**/Assets/AddressableAssetsData/*/*.bin*
+**/Assets/StreamingAssets/aa.meta
+**/Assets/StreamingAssets/*/aa/*
+
+# Private files
+*.private
+*.private.meta
+
+# ====================
+# IDE / Editor generated
+# ====================
+.vs/
+.idea/
+.gradle/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ====================
+# Build outputs
+# ====================
+*.apk
+*.aab
+*.app
+*.unitypackage
+
+# ====================
+# OS files
+# ====================
+.DS_Store*
+Thumbs.db
+Desktop.ini
+
+# ====================
+# Codely CLI
+# ====================
+.codely-cli/
+.codely/clipboard/
+screenshots/
