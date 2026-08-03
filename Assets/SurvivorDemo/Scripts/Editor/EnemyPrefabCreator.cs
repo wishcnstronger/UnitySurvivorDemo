@@ -47,6 +47,12 @@ namespace SurvivorDemo
             // EnemyMovement —— 朝玩家移动
             enemy.AddComponent<EnemyMovement>();
 
+            // EnemyHealth —— 血量与死亡
+            enemy.AddComponent<EnemyHealth>();
+
+            // EnemyHealthBar —— 头顶血条显示
+            enemy.AddComponent<EnemyHealthBar>();
+
             // 3. 保存为预制体
             PrefabUtility.SaveAsPrefabAsset(enemy, PrefabPath);
 

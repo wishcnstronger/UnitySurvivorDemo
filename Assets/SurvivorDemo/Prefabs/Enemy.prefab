@@ -13,7 +13,9 @@ GameObject:
   - component: {fileID: 7864174820663017930}
   - component: {fileID: 6894750503881156279}
   - component: {fileID: 5968917373969788859}
-  m_Layer: 0
+  - component: {fileID: 4953819498475981571}
+  - component: {fileID: 2502097735647347893}
+  m_Layer: 8
   m_HasEditorInfo: 1
   m_Name: Enemy
   m_TagString: Untagged
@@ -167,3 +169,31 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 3
+--- !u!114 &4953819498475981571
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2571248461191974824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca04eb0c7b6698643acac119fa4c3003, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHP: 3
+--- !u!114 &2502097735647347893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2571248461191974824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86b8b62ea66093341b9da619a0eed139, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  barWidth: 1
+  barHeight: 0.15
+  barOffsetY: 0.7

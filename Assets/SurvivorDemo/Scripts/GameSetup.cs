@@ -74,8 +74,32 @@ namespace SurvivorDemo
             player.AddComponent<PlayerStats>();
             player.AddComponent<PlayerMovement>();
 
+            // 武器组件，并自动创建子弹模板给它用
+            PlayerWeapon weapon = player.AddComponent<PlayerWeapon>();
+            weapon.bulletPrefab = CreateBulletTemplate();
+
             // 初始位置
             player.transform.position = Vector3.zero;
+        }
+
+        /// <summary>
+        /// 创建一颗隐藏的子弹模板（黄色圆形），返回引用。
+        /// PlayerWeapon 生成子弹时以它为模板克隆。
+        /// </summary>
+        private GameObject CreateBulletTemplate()
+        {
+            GameObject bullet = new GameObject("BulletTemplate");
+            bullet.SetActive(false); // 隐藏，只在被发射时激活
+
+            // 渲染：黄色圆形
+            SpriteRenderer sr = bullet.AddComponent<SpriteRenderer>();
+            sr.sprite = CreateCircleSprite(Color.yellow, 16);
+            sr.sortingOrder = 2;
+
+            // 子弹飞行组件
+            bullet.AddComponent<Bullet>();
+
+            return bullet;
         }
 
         private void SetupCamera()
