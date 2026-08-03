@@ -25,12 +25,15 @@ namespace SurvivorDemo
 
         [Header("摄像机")]
         [SerializeField, Tooltip("摄像机背景色")]
-        private Color cameraBackground = new Color(0.1f, 0.1f, 0.12f);
+        private Color cameraBackground = new Color(0.2f, 0.2f, 0.2f);
 
         [SerializeField, Tooltip("摄像机正交大小")]
         private float cameraSize = 8f;
 
         private Camera mainCam;
+
+        /// <summary>玩家引用（本脚本自己创建，直接缓存，避免每帧按名字查找）</summary>
+        private Transform playerTransform;
 
         private void Awake()
         {
@@ -78,8 +81,16 @@ namespace SurvivorDemo
             PlayerWeapon weapon = player.AddComponent<PlayerWeapon>();
             weapon.bulletPrefab = CreateBulletTemplate();
 
+            // 升级系统：界面 + 流程管理（先加界面，LevelUpManager 会自动找到它）
+            UpgradeUI upgradeUI = player.AddComponent<UpgradeUI>();
+            LevelUpManager levelUp = player.AddComponent<LevelUpManager>();
+            levelUp.upgradeUI = upgradeUI;
+
             // 初始位置
             player.transform.position = Vector3.zero;
+
+            // 缓存玩家引用，供摄像机跟随使用
+            playerTransform = player.transform;
         }
 
         /// <summary>
@@ -121,15 +132,11 @@ namespace SurvivorDemo
 
         private void LateUpdate()
         {
-            // 摄像机硬跟随 Player
-            if (mainCam != null)
+            // 摄像机硬跟随 Player（直接使用缓存的引用，不再每帧按名字查找）
+            if (mainCam != null && playerTransform != null)
             {
-                GameObject player = GameObject.Find("Player");
-                if (player != null)
-                {
-                    Vector3 pos = player.transform.position;
-                    mainCam.transform.position = new Vector3(pos.x, pos.y, -10f);
-                }
+                Vector3 pos = playerTransform.position;
+                mainCam.transform.position = new Vector3(pos.x, pos.y, -10f);
             }
         }
 

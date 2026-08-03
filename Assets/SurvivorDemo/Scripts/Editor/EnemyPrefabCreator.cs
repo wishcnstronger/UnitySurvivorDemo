@@ -48,7 +48,18 @@ namespace SurvivorDemo
             enemy.AddComponent<EnemyMovement>();
 
             // EnemyHealth —— 血量与死亡
-            enemy.AddComponent<EnemyHealth>();
+            EnemyHealth health = enemy.AddComponent<EnemyHealth>();
+
+            // 给敌人挂上经验宝石预制体引用（死亡时掉落）
+            GameObject xpOrbPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SurvivorDemo/Prefabs/XPOrb.prefab");
+            if (xpOrbPrefab != null)
+            {
+                health.xpOrbPrefab = xpOrbPrefab;
+            }
+            else
+            {
+                Debug.LogWarning("未找到 XPOrb.prefab，请先执行菜单：SurvivorDemo → Create XP Orb Prefab");
+            }
 
             // EnemyHealthBar —— 头顶血条显示
             enemy.AddComponent<EnemyHealthBar>();

@@ -12,8 +12,17 @@ namespace SurvivorDemo
         /// <summary>最大生命值（Inspector 可调）</summary>
         public float maxHP = 3f;
 
+        /// <summary>掉落经验值（Inspector 可调）</summary>
+        public int xpDropAmount = 5;
+
+        /// <summary>经验宝石预制体（Inspector 拖入）</summary>
+        public GameObject xpOrbPrefab;
+
         /// <summary>当前生命值</summary>
         private float currentHP;
+
+        /// <summary>是否已死亡（防止同帧被多颗子弹命中时重复掉落经验宝石）</summary>
+        private bool isDead;
 
         /// <summary>血条引用（同一 GameObject 上的 EnemyHealthBar）</summary>
         private EnemyHealthBar healthBar;
@@ -31,6 +40,10 @@ namespace SurvivorDemo
         /// <param name="amount">伤害数值</param>
         public void ReceiveDamage(float amount)
         {
+            // 已死亡就不再受理伤害，防止同帧多颗子弹命中导致重复掉落
+            if (isDead)
+                return;
+
             currentHP -= amount;
 
             // 更新血条显示
@@ -48,11 +61,25 @@ namespace SurvivorDemo
 
         /// <summary>
         /// 敌人死亡。
-        /// 从场景中销毁，并打印日志方便运行时观察。
+        /// 在原地掉落经验宝石，然后从场景中销毁。
         /// </summary>
         private void Die()
         {
+            // 先置死亡标记，再执行掉落与销毁
+            isDead = true;
             Debug.Log($"{gameObject.name} 死亡");
+
+            // 掉落经验宝石，并把经验值设置到宝石上
+            if (xpOrbPrefab != null)
+            {
+                GameObject orb = Instantiate(xpOrbPrefab, transform.position, Quaternion.identity);
+                XPOrb xpOrb = orb.GetComponent<XPOrb>();
+                if (xpOrb != null)
+                {
+                    xpOrb.xpValue = xpDropAmount;
+                }
+            }
+
             Destroy(gameObject);
         }
     }

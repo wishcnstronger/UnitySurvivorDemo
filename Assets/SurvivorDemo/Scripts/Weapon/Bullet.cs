@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SurvivorDemo
@@ -19,6 +20,15 @@ namespace SurvivorDemo
 
         /// <summary>子弹伤害值（由 PlayerWeapon 发射时传入）</summary>
         private float damage;
+
+        /// <summary>剩余可穿透的敌人数（0 = 命中第一个敌人就销毁）</summary>
+        private int penetration;
+
+        /// <summary>已命中的敌人集合，防止穿透时同一敌人被反复触发</summary>
+        private HashSet<EnemyHealth> hitEnemies = new HashSet<EnemyHealth>();
+
+        /// <summary>是否已销毁（Destroy 延迟到帧末，用标记短路同帧后续的碰撞回调）</summary>
+        private bool destroyed;
 
         /// <summary>飞行方向（由 PlayerWeapon 发射时传入）</summary>
         private Vector2 direction;
@@ -56,6 +66,16 @@ namespace SurvivorDemo
             damage = d;
         }
 
+        /// <summary>
+        /// 设置穿透次数。
+        /// 由发射者（PlayerWeapon）在生成子弹后调用。
+        /// </summary>
+        /// <param name="p">可穿透的敌人数</param>
+        public void SetPenetration(int p)
+        {
+            penetration = p;
+        }
+
         private void Start()
         {
             // 到达存活时间后自动销毁，防止子弹永远留在场景里
@@ -70,11 +90,16 @@ namespace SurvivorDemo
 
         /// <summary>
         /// 碰到物体时触发。
-        /// 只有碰到带 EnemyHealth 的敌人时造成伤害并销毁子弹；
+        /// 只有碰到带 EnemyHealth 的敌人时造成伤害；
         /// 碰到玩家等其他物体直接忽略，子弹继续飞行。
+        /// 命中后：还有穿透次数就继续飞，否则销毁。
         /// </summary>
         private void OnTriggerEnter2D(Collider2D other)
         {
+            // 已销毁（同帧内后续回调）直接忽略
+            if (destroyed)
+                return;
+
             // 尝试获取对方的血量组件
             EnemyHealth enemy = other.GetComponent<EnemyHealth>();
 
@@ -82,11 +107,24 @@ namespace SurvivorDemo
             if (enemy == null)
                 return;
 
-            // 对敌人造成伤害
+            // 已经命中过这个敌人（穿透时防止同一敌人被反复触发）→ 忽略
+            if (hitEnemies.Contains(enemy))
+                return;
+
+            // 记录本次命中并造成伤害
+            hitEnemies.Add(enemy);
             enemy.ReceiveDamage(damage);
 
-            // 子弹命中后立即销毁，不穿透
-            Destroy(gameObject);
+            // 还有穿透次数 → 继续飞行；否则销毁
+            if (penetration > 0)
+            {
+                penetration--;
+            }
+            else
+            {
+                destroyed = true; // 先置标记再销毁，防止同帧再命中其他重叠敌人
+                Destroy(gameObject);
+            }
         }
     }
 }

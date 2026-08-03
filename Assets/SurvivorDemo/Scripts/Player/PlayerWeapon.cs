@@ -21,6 +21,18 @@ namespace SurvivorDemo
         /// <summary>武器攻击力，发射子弹时传给子弹</summary>
         public float damage = 1f;
 
+        /// <summary>每轮发射的子弹数量</summary>
+        public int bulletCount = 1;
+
+        /// <summary>子弹可穿透的敌人数（0 = 命中第一个敌人就销毁）</summary>
+        public int penetration = 0;
+
+        /// <summary>多颗子弹之间的散射角度（度）</summary>
+        public float spreadAngle = 15f;
+
+        /// <summary>攻速上限（最小攻击间隔秒），攻速再高也不会低于此值</summary>
+        public float minFireInterval = 0.1f;
+
         /// <summary>攻击计时器，累计到 fireInterval 时开火</summary>
         private float timer;
 
@@ -37,7 +49,7 @@ namespace SurvivorDemo
             }
         }
 
-        /// <summary>找到最近的敌人并朝它发射一颗子弹</summary>
+        /// <summary>找到最近的敌人，朝它发射一圈子弹</summary>
         private void Fire()
         {
             // 没有子弹模板就不攻击
@@ -51,22 +63,83 @@ namespace SurvivorDemo
             if (nearestEnemy == null)
                 return;
 
-            // 计算发射方向（从玩家指向敌人，归一化）
-            Vector2 direction = (nearestEnemy.position - transform.position).normalized;
+            // 基准方向：从玩家指向最近敌人，归一化
+            Vector2 baseDirection = (nearestEnemy.position - transform.position).normalized;
 
-            // 生成一颗子弹
-            GameObject bullet = Instantiate(bulletPrefab, transform.position, Quaternion.identity);
+            // 敌人精确叠在玩家身上时差值为零向量，退化为朝上发射，避免产生静止不动的子弹
+            if (baseDirection.sqrMagnitude < 0.0001f)
+                baseDirection = Vector2.up;
 
-            // 模板是隐藏的，生成后激活它
-            bullet.SetActive(true);
-
-            // 把飞行方向和伤害值告诉子弹
-            Bullet bulletComp = bullet.GetComponent<Bullet>();
-            if (bulletComp != null)
+            // 循环发射 bulletCount 颗子弹，各自绕基准方向散射
+            for (int i = 0; i < bulletCount; i++)
             {
-                bulletComp.SetDirection(direction);
-                bulletComp.SetDamage(damage);
+                // 计算这一颗的角度偏移（让多颗子弹对称散开）
+                float offset = (i - (bulletCount - 1) / 2f) * spreadAngle;
+                Vector2 dir = Rotate(baseDirection, offset * Mathf.Deg2Rad);
+
+                // 生成一颗子弹
+                GameObject bullet = Instantiate(bulletPrefab, transform.position, Quaternion.identity);
+
+                // 模板是隐藏的，生成后激活它
+                bullet.SetActive(true);
+
+                // 把方向、伤害、穿透告诉子弹
+                Bullet bulletComp = bullet.GetComponent<Bullet>();
+                if (bulletComp != null)
+                {
+                    bulletComp.SetDirection(dir);
+                    bulletComp.SetDamage(damage);
+                    bulletComp.SetPenetration(penetration);
+                }
             }
+        }
+
+        /// <summary>
+        /// 将向量 v 绕原点旋转 radians 弧度。
+        /// 用于计算多颗子弹的散射方向。
+        /// </summary>
+        private Vector2 Rotate(Vector2 v, float radians)
+        {
+            float cos = Mathf.Cos(radians);
+            float sin = Mathf.Sin(radians);
+            return new Vector2(
+                v.x * cos - v.y * sin,
+                v.x * sin + v.y * cos
+            );
+        }
+
+        // ======== 升级方法（由 LevelUpManager 调用） ========
+
+        /// <summary>攻击力加法强化</summary>
+        public void AddDamage(float amount)
+        {
+            damage += amount;
+        }
+
+        /// <summary>攻速乘法强化（factor > 1 表示攻速变快），等价于攻击间隔除以 factor</summary>
+        public void AddFireRateMultiplier(float factor)
+        {
+            fireInterval /= factor;
+            if (fireInterval < minFireInterval)
+                fireInterval = minFireInterval;
+        }
+
+        /// <summary>攻速是否已到上限（此时攻速卡零收益，升级抽卡时用于排除）</summary>
+        public bool IsFireRateAtCap()
+        {
+            return fireInterval <= minFireInterval;
+        }
+
+        /// <summary>子弹数量加法强化</summary>
+        public void AddBulletCount(int count)
+        {
+            bulletCount += count;
+        }
+
+        /// <summary>穿透次数加法强化</summary>
+        public void AddPenetration(int count)
+        {
+            penetration += count;
         }
 
         /// <summary>

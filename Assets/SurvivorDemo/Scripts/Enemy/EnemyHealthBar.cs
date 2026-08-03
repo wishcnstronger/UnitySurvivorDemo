@@ -24,8 +24,11 @@ namespace SurvivorDemo
         /// <summary>填充条 SpriteRenderer，用于动态变色</summary>
         private SpriteRenderer fillRenderer;
 
-        /// <summary>缓存的方形 Sprite（背景和填充共用）</summary>
+        /// <summary>缓存的方形 Sprite（背景用）</summary>
         private static Sprite squareSprite;
+
+        /// <summary>缓存的填充方形 Sprite（左对齐 pivot，所有敌人共用一份）</summary>
+        private static Sprite fillSprite;
 
         /// <summary>
         /// 在 Start 中创建血条，避免编辑模式预制体保存时产生子物体。
@@ -65,7 +68,11 @@ namespace SurvivorDemo
 
             barFill = fillObj.transform;
             fillRenderer = fillObj.AddComponent<SpriteRenderer>();
-            fillRenderer.sprite = CreateFillSprite();
+            if (fillSprite == null)
+            {
+                fillSprite = CreateFillSprite();
+            }
+            fillRenderer.sprite = fillSprite;
             fillRenderer.color = Color.green;
             fillRenderer.sortingOrder = 11;
         }
