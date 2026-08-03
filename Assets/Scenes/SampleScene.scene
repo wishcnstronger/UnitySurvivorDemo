@@ -154,9 +154,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 16cb3360ffb23da4786a52180407111d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enemyPrefab: {fileID: 2571248461191974824, guid: d34882cc31cd57943905ac073c7cf6a3,
+  enemyPrefabs:
+  - {fileID: 2571248461191974824, guid: d34882cc31cd57943905ac073c7cf6a3, type: 3}
+  - {fileID: 2734221176563207342, guid: a818304f368e73a4aa8b6e2ab0e574de, type: 3}
+  - {fileID: 4099987344247777428, guid: c446d8f8ea5911c478c1241fd729fb6f, type: 3}
+  bossPrefab: {fileID: 8958085575307685790, guid: 7377a8f5df19eca45af9cd72e0e97231,
     type: 3}
   spawnInterval: 2
+  minSpawnInterval: 0.4
   spawnMinDistance: 8
   spawnMaxDistance: 10
 --- !u!4 &96989250
@@ -526,7 +531,7 @@ MonoBehaviour:
   groundSize: {x: 40, y: 40}
   playerColor: {r: 0, g: 1, b: 1, a: 1}
   playerRadius: 0.5
-  cameraBackground: {r: 0.1, g: 0.1, b: 0.12, a: 1}
+  cameraBackground: {r: 1, g: 1, b: 1, a: 1}
   cameraSize: 8
 --- !u!4 &901668877
 Transform:

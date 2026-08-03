@@ -16,12 +16,12 @@ namespace SurvivorDemo
         [SerializeField, Tooltip("最大生命值")]
         private float maxHP = 100f;
 
-        [SerializeField, Tooltip("护甲值，减少受到的伤害百分比")]
-        private float armor = 0f;
+        [SerializeField, Tooltip("护甲值，固定减伤（实际伤害=伤害-护甲，最低0）")]
+        private int armor = 0;
 
         [Header("磁铁")]
         [SerializeField, Tooltip("经验宝石吸引范围")]
-        private float magnetRange = 5f;
+        private float magnetRange = 2f;
 
         [Header("经验")]
         [SerializeField, Tooltip("当前经验值")]
@@ -63,7 +63,7 @@ namespace SurvivorDemo
         /// </summary>
         public void TakeDamage(float amount)
         {
-            float reduced = amount * (1f - armor / 100f);
+            float reduced = Mathf.Max(1f, amount - armor);
             currentHP -= reduced;
             if (currentHP < 0f) currentHP = 0f;
         }
@@ -105,6 +105,31 @@ namespace SurvivorDemo
         public void AddMoveSpeedMultiplier(float factor)
         {
             moveSpeed *= factor;
+        }
+
+        /// <summary>最大生命值加法强化，同时恢复等量生命（由升级流程调用）</summary>
+        public void AddMaxHP(float amount)
+        {
+            maxHP += amount;
+            currentHP += amount;
+        }
+
+        /// <summary>护甲加法强化，上限 30（由升级流程调用）</summary>
+        public void AddArmor(float amount)
+        {
+            armor = Mathf.Min(30, armor + (int)amount);
+        }
+
+        /// <summary>护甲是否已到上限（升级抽卡时用于排除零收益选项）</summary>
+        public bool IsArmorAtCap()
+        {
+            return armor >= 30;
+        }
+
+        /// <summary>经验拾取范围加法强化（由升级流程调用）</summary>
+        public void AddMagnetRange(float amount)
+        {
+            magnetRange += amount;
         }
 
         /// <summary>

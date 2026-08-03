@@ -11,6 +11,9 @@ namespace SurvivorDemo
         /// <summary>移动速度，单位/秒</summary>
         public float moveSpeed = 3f;
 
+        /// <summary>接触伤害（碰到玩家时造成的基础伤害，由 EnemySpawner 按时间缩放）</summary>
+        public float contactDamage = 10f;
+
         /// <summary>玩家 Transform 引用</summary>
         private Transform player;
 

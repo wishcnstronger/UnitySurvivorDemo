@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace SurvivorDemo
 {
@@ -11,10 +12,23 @@ namespace SurvivorDemo
     {
         [Header("地面")]
         [SerializeField, Tooltip("地面颜色")]
-        private Color groundColor = new Color(0.15f, 0.15f, 0.15f);
+        private Color groundColor = new Color(0.1f, 0.1f, 0.1f);
 
-        [SerializeField, Tooltip("地面大小")]
-        private Vector2 groundSize = new Vector2(40f, 40f);
+        [SerializeField, Tooltip("地面大小（底层画布，仅比可移动区域大一圈边框）")]
+        private Vector2 groundSize = new Vector2(38f, 38f);
+
+        [Header("可移动区域")]
+        [SerializeField, Tooltip("可移动区域大小（占据画面大部分）")]
+        private Vector2 playAreaSize = new Vector2(36f, 36f);
+
+        [SerializeField, Tooltip("可移动区域颜色")]
+        private Color playAreaColor = new Color(0.22f, 0.22f, 0.22f);
+
+        [SerializeField, Tooltip("边界框颜色")]
+        private Color borderColor = new Color(0.4f, 0.4f, 0.4f);
+
+        [SerializeField, Tooltip("边界框厚度")]
+        private float borderThickness = 0.3f;
 
         [Header("玩家")]
         [SerializeField, Tooltip("玩家颜色")]
@@ -35,11 +49,31 @@ namespace SurvivorDemo
         /// <summary>玩家引用（本脚本自己创建，直接缓存，避免每帧按名字查找）</summary>
         private Transform playerTransform;
 
+        /// <summary>子弹模板缓存（独立根物体，重开时复用，不重复创建）</summary>
+        private GameObject bulletTemplate;
+
+        /// <summary>开始界面（首次启动显示，重开不再展示，重开时销毁）</summary>
+        private StartScreenUI startScreen;
+
         private void Awake()
         {
+            // 停在开始界面：时间流速为 0，等玩家点 Start 才正式开始。
+            // 开始界面期间 deltaTime≈0，敌人不移动/不生成、计时不走、玩家不能动。
+            Time.timeScale = 0f;
+
+            // 复位全局状态（static 变量在重开/重进播放模式下不会自动清空，必须显式归零）
+            GameStats.kills = 0;
+            GameStats.playTime = 0f;
+
             CreateGround();
+            CreatePlayArea();
+            SetupEnemySpawnerBounds();
             CreatePlayer();
             SetupCamera();
+
+            // 开始界面：挂独立 GameObject（不挂 Player），sortingOrder=120 最高层
+            GameObject startScreenObj = new GameObject("StartScreenUI");
+            startScreen = startScreenObj.AddComponent<StartScreenUI>();
         }
 
         private void CreateGround()
@@ -49,9 +83,257 @@ namespace SurvivorDemo
             sr.sprite = CreateSquareSprite(groundColor);
             sr.drawMode = SpriteDrawMode.Simple;
             ground.transform.localScale = new Vector3(groundSize.x, groundSize.y, 1f);
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             ground.transform.position = Vector3.zero;
             // Layer 设置等 TagManager 正确加载后再用，Phase1 不需要碰撞层
         }
+
+        /// <summary>
+        /// 创建可移动区域：边界框 + 可移动区域底色。
+        /// 边界框比可移动区域大一圈，可移动区域叠在上方，形成视觉边界。
+        /// </summary>
+        private void CreatePlayArea()
+        {
+            // 边界框（略大于可移动区域，形成可见边框）
+            GameObject border = new GameObject("PlayAreaBorder");
+            SpriteRenderer borderSr = border.AddComponent<SpriteRenderer>();
+            borderSr.sprite = CreateSquareSprite(borderColor);
+            borderSr.sortingOrder = 0;
+            float borderSize = playAreaSize.x + borderThickness * 2f;
+            border.transform.localScale = new Vector3(borderSize, playAreaSize.y + borderThickness * 2f, 1f);
+            border.transform.position = new Vector3(0f, 0f, 0.5f);
+
+            // 可移动区域底色（叠在边界框上方，比地面浅，与边界框形成层次）
+            GameObject playArea = new GameObject("PlayArea");
+            SpriteRenderer playSr = playArea.AddComponent<SpriteRenderer>();
+            playSr.sprite = CreateSquareSprite(playAreaColor);
+            playSr.sortingOrder = 1;
+            playArea.transform.localScale = new Vector3(playAreaSize.x, playAreaSize.y, 1f);
+            playArea.transform.position = new Vector3(0f, 0f, 0.4f);
+        }
+
+        /// <summary>将可移动区域边界注入场景中的 EnemySpawner，使怪物生成区域与玩家移动区域一致</summary>
+        private void SetupEnemySpawnerBounds()
+        {
+            EnemySpawner spawner = FindObjectOfType<EnemySpawner>();
+            if (spawner != null)
+            {
+                spawner.boundX = playAreaSize.x / 2f;
+                spawner.boundY = playAreaSize.y / 2f;
+            }
+        }
+
 
         private void CreatePlayer()
         {
@@ -73,9 +355,55 @@ namespace SurvivorDemo
             sr.sprite = CreateCircleSprite(playerColor, 32);
             sr.sortingOrder = 1;
 
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             // 组件
             player.AddComponent<PlayerStats>();
-            player.AddComponent<PlayerMovement>();
+
+            // 移动：设置可移动区域边界
+            PlayerMovement movement = player.AddComponent<PlayerMovement>();
+            movement.boundX = playAreaSize.x / 2f;
+            movement.boundY = playAreaSize.y / 2f;
+
 
             // 武器组件，并自动创建子弹模板给它用
             PlayerWeapon weapon = player.AddComponent<PlayerWeapon>();
@@ -85,6 +413,16 @@ namespace SurvivorDemo
             UpgradeUI upgradeUI = player.AddComponent<UpgradeUI>();
             LevelUpManager levelUp = player.AddComponent<LevelUpManager>();
             levelUp.upgradeUI = upgradeUI;
+
+            // 生命系统：受伤 / 无敌 / 常驻 HUD / 游戏结束结算
+            player.AddComponent<PlayerHealth>();
+            player.AddComponent<PlayerHUD>();
+
+            // 游玩计时：每帧累加 GameStats.playTime（HUD 右上角时间与结算存活时间用）
+            player.AddComponent<GameTimer>();
+
+            GameOverUI gameOverUI = player.AddComponent<GameOverUI>();
+            gameOverUI.gameSetup = this; // 注入重开回调（点击按钮时调用 ResetGame）
 
             // 初始位置
             player.transform.position = Vector3.zero;
@@ -99,6 +437,10 @@ namespace SurvivorDemo
         /// </summary>
         private GameObject CreateBulletTemplate()
         {
+            // 已有模板则复用：它是独立根物体，重开销毁玩家不会带走它
+            if (bulletTemplate != null)
+                return bulletTemplate;
+
             GameObject bullet = new GameObject("BulletTemplate");
             bullet.SetActive(false); // 隐藏，只在被发射时激活
 
@@ -110,7 +452,68 @@ namespace SurvivorDemo
             // 子弹飞行组件
             bullet.AddComponent<Bullet>();
 
+            bulletTemplate = bullet;
             return bullet;
+        }
+
+        /// <summary>
+        /// 重新开始一局。
+        /// 场景是运行时全程序化搭建的，不能用 SceneManager.LoadScene 重载，
+        /// 所以手动清空场上所有物体并重建玩家（Ground 保留）。
+        /// </summary>
+        public void ResetGame()
+        {
+            // 1. 复位全局状态：
+            //    timeScale 不复位 → 新局永远静止；static 击杀数/游玩时间不会自动清空 → 必须显式归零
+            Time.timeScale = 1f;
+            GameStats.kills = 0;
+            GameStats.playTime = 0f;
+
+            // 2. 销毁开始界面（只在首次启动出现过，重开直接开打，不再展示）
+            if (startScreen != null)
+            {
+                startScreen.gameObject.SetActive(false);
+                Destroy(startScreen.gameObject);
+                startScreen = null;
+            }
+
+            // 3. 销毁旧玩家：先停用再销毁。
+            //    Destroy 延迟到帧末生效，停用后旧玩家的 Update 不再运行，
+            //    防止它在本帧剩余时间继续发射残留子弹污染新局
+            GameObject oldPlayer = GameObject.Find("Player");
+            if (oldPlayer != null)
+            {
+                oldPlayer.SetActive(false);
+                Destroy(oldPlayer);
+            }
+
+            // 4. 一次性销毁所有敌人 / 玩家子弹 / 敌人子弹 / 经验宝石
+            //    （只在重开时调用一次，不是每帧路径，可用 FindObjectsOfType）
+            foreach (EnemyMovement enemy in FindObjectsOfType<EnemyMovement>())
+                Destroy(enemy.gameObject);
+
+            foreach (Bullet bullet in FindObjectsOfType<Bullet>())
+                Destroy(bullet.gameObject);
+
+            // 敌人子弹（三角怪发射）也是场上投掷物，重开必须一起清掉，否则会打到新玩家
+            foreach (EnemyBullet bullet in FindObjectsOfType<EnemyBullet>())
+                Destroy(bullet.gameObject);
+
+            foreach (XPOrb orb in FindObjectsOfType<XPOrb>())
+                Destroy(orb.gameObject);
+
+            // 首领矩形伤害区域（boss 死亡后可能残留）
+            foreach (SpriteRenderer sr in FindObjectsOfType<SpriteRenderer>())
+                if (sr.gameObject.name == "BossRectZone")
+                    Destroy(sr.gameObject);
+
+            // 5. 销毁所有运行时创建的 UI Canvas（EventSystem 不是 Canvas，自动保留复用）
+            foreach (Canvas canvas in FindObjectsOfType<Canvas>())
+                Destroy(canvas.gameObject);
+
+            // 6. 重建玩家与摄像机（地面保留），playerTransform 缓存更新为新玩家
+            CreatePlayer();
+            SetupCamera();
         }
 
         private void SetupCamera()
@@ -133,7 +536,18 @@ namespace SurvivorDemo
         private void LateUpdate()
         {
             // 摄像机硬跟随 Player（直接使用缓存的引用，不再每帧按名字查找）
-            if (mainCam != null && playerTransform != null)
+            if (mainCam == null)
+                return;
+
+            // 引用失效（重开旧玩家销毁）时重新查找一次，防止摄像机永久罢工
+            if (playerTransform == null)
+            {
+                GameObject player = GameObject.Find("Player");
+                if (player != null)
+                    playerTransform = player.transform;
+            }
+
+            if (playerTransform != null)
             {
                 Vector3 pos = playerTransform.position;
                 mainCam.transform.position = new Vector3(pos.x, pos.y, -10f);

@@ -76,6 +76,15 @@ namespace SurvivorDemo
                 onSelect(def);
         }
 
+        /// <summary>
+        /// 隐藏升级面板（GameOverUI 在结算时调用）。
+        /// 防止玩家在升级暂停期间死亡后，升级卡仍可点击并恢复游戏。
+        /// </summary>
+        public void Hide()
+        {
+            panel.SetActive(false);
+        }
+
         // ======== 程序化生成 UI ========
 
         /// <summary>创建 Canvas、EventSystem、面板和三张卡片</summary>
@@ -119,7 +128,7 @@ namespace SurvivorDemo
             CreateTitle(panel.transform);
 
             // 5. 三张卡片
-            Font font = GetDefaultFont();
+            Font font = UIFont.Get();
             for (int i = 0; i < 3; i++)
             {
                 CreateCard(panel.transform, font, i);
@@ -141,7 +150,7 @@ namespace SurvivorDemo
 
             Text title = titleObj.AddComponent<Text>();
             title.text = "升级！选择一项强化";
-            title.font = GetDefaultFont();
+            title.font = UIFont.Get();
             title.fontSize = 60;
             title.alignment = TextAnchor.MiddleCenter;
             title.color = Color.white; // 深色面板上用白色标题，保证可读
@@ -188,23 +197,6 @@ namespace SurvivorDemo
             // 存引用
             cardButtons.Add(button);
             cardTexts.Add(text);
-        }
-
-        /// <summary>缓存的动态字体（整个界面共用一份）</summary>
-        private static Font cachedFont;
-
-        /// <summary>
-        /// 获取动态字体，确保文字渲染清晰。
-        /// 优先用微软雅黑（中文系统自带、含中文字形），Arial 作为回退。
-        /// 结果静态缓存，整个界面只创建一份字体，避免重复分配图集。
-        /// </summary>
-        private static Font GetDefaultFont()
-        {
-            if (cachedFont == null)
-            {
-                cachedFont = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei", "Arial" }, 40);
-            }
-            return cachedFont;
         }
     }
 }

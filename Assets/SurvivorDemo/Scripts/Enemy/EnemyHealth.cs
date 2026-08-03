@@ -34,6 +34,16 @@ namespace SurvivorDemo
         }
 
         /// <summary>
+        /// 生成后由 EnemySpawner 调用，按时间倍率缩放血量。
+        /// Awake 已把 currentHP 设为原始 maxHP，这里重设 maxHP 并同步 currentHP。
+        /// </summary>
+        public void ScaleMaxHP(float multiplier)
+        {
+            maxHP *= multiplier;
+            currentHP = maxHP;
+        }
+
+        /// <summary>
         /// 受到伤害。
         /// 扣血后更新血条，生命值小于等于 0 时调用 Die() 死亡。
         /// </summary>
@@ -67,6 +77,7 @@ namespace SurvivorDemo
         {
             // 先置死亡标记，再执行掉落与销毁
             isDead = true;
+            GameStats.kills++; // 计入全局击杀数（结算界面用，重开时归零）
             Debug.Log($"{gameObject.name} 死亡");
 
             // 掉落经验宝石，并把经验值设置到宝石上
