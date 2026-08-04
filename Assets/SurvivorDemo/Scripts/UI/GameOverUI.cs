@@ -17,16 +17,22 @@ namespace SurvivorDemo
         /// <summary>玩家属性（每帧轮询血量）</summary>
         private PlayerStats stats;
 
+        /// <summary>玩家武器（结算构筑属性展示用）</summary>
+        private PlayerWeapon weapon;
+
         /// <summary>升级界面（结算时隐藏，防止升级卡在游戏结束后仍可点击）</summary>
         private UpgradeUI upgradeUI;
 
         /// <summary>结算面板根节点（初始隐藏）</summary>
         private GameObject panel;
 
-        /// <summary>三行统计文字</summary>
+        /// <summary>统计文字</summary>
         private Text timeText;
         private Text levelText;
         private Text killsText;
+
+        /// <summary>构筑属性小字（伤害/攻速/子弹/穿透/暴击/经验，纯展示）</summary>
+        private Text buildText;
 
         /// <summary>是否已显示（防止重复弹窗）</summary>
         private bool isShown;
@@ -34,6 +40,7 @@ namespace SurvivorDemo
         private void Awake()
         {
             stats = GetComponent<PlayerStats>();
+            weapon = GetComponent<PlayerWeapon>();
             upgradeUI = GetComponent<UpgradeUI>();
         }
 
@@ -77,6 +84,7 @@ namespace SurvivorDemo
             timeText.text = $"存活时间：{minutes}:{seconds:D2}";
             levelText.text = $"等级：{stats.Level}";
             killsText.text = $"击杀数：{GameStats.kills}";
+            buildText.text = BuildSummaryText();
 
             panel.SetActive(true);
         }
@@ -127,7 +135,7 @@ namespace SurvivorDemo
             pRect.anchorMin = new Vector2(0.5f, 0.5f);
             pRect.anchorMax = new Vector2(0.5f, 0.5f);
             pRect.pivot = new Vector2(0.5f, 0.5f);
-            pRect.sizeDelta = new Vector2(600f, 500f);
+            pRect.sizeDelta = new Vector2(600f, 650f);
             pRect.anchoredPosition = Vector2.zero;
 
             Image pImage = panel.AddComponent<Image>();
@@ -155,10 +163,13 @@ namespace SurvivorDemo
 
             // 5. 三行统计
             timeText = CreateStatLine(panel.transform, font, "存活时间：--:--", 0.6f);
-            levelText = CreateStatLine(panel.transform, font, "等级：-", 0.45f);
-            killsText = CreateStatLine(panel.transform, font, "击杀数：-", 0.3f);
+            levelText = CreateStatLine(panel.transform, font, "等级：-", 0.47f);
+            killsText = CreateStatLine(panel.transform, font, "击杀数：-", 0.34f);
 
-            // 6. 重新开始按钮（白底黑字）
+            // 6. 构筑属性小字（击杀数下方，白 24 号，纯展示只读）
+            buildText = CreateBuildText(panel.transform, font);
+
+            // 7. 重新开始按钮（白底黑字）
             GameObject btnObj = new GameObject("RestartButton");
             btnObj.transform.SetParent(panel.transform, false);
 
@@ -166,8 +177,8 @@ namespace SurvivorDemo
             btnRect.anchorMin = new Vector2(0.5f, 0f);
             btnRect.anchorMax = new Vector2(0.5f, 0f);
             btnRect.pivot = new Vector2(0.5f, 0f);
-            btnRect.anchoredPosition = new Vector2(0f, 40f);
-            btnRect.sizeDelta = new Vector2(240f, 80f);
+            btnRect.anchoredPosition = new Vector2(0f, 15f);
+            btnRect.sizeDelta = new Vector2(240f, 70f);
 
             Image btnImage = btnObj.AddComponent<Image>();
             btnImage.color = Color.white;
@@ -221,6 +232,42 @@ namespace SurvivorDemo
             text.color = Color.white;
 
             return text;
+        }
+
+        /// <summary>创建构筑属性小字（击杀数下方，白 24 号，允许换行）</summary>
+        private Text CreateBuildText(Transform parent, Font font)
+        {
+            GameObject textObj = new GameObject("BuildText");
+            textObj.transform.SetParent(parent, false);
+
+            RectTransform txtRect = textObj.AddComponent<RectTransform>();
+            txtRect.anchorMin = new Vector2(0.5f, 0.2f);
+            txtRect.anchorMax = new Vector2(0.5f, 0.2f);
+            txtRect.pivot = new Vector2(0.5f, 0.5f);
+            txtRect.anchoredPosition = Vector2.zero;
+            txtRect.sizeDelta = new Vector2(540f, 60f);
+
+            Text text = textObj.AddComponent<Text>();
+            text.text = "";
+            text.font = font;
+            text.fontSize = 24;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+
+            return text;
+        }
+
+        /// <summary>拼装本局最终强化属性字符串（只读不改，纯展示）</summary>
+        private string BuildSummaryText()
+        {
+            if (weapon == null || stats == null)
+                return "";
+
+            // 攻速用 1/攻击间隔 表示每秒攻击次数
+            float fireRate = weapon.fireInterval > 0f ? 1f / weapon.fireInterval : 0f;
+            return $"伤害 {weapon.damage:0} · 攻速 ×{fireRate:0.0} · 子弹 {weapon.bulletCount} · 穿透 {weapon.penetration} · 暴击 {weapon.critChance * 100f:0}% · 经验 ×{stats.XPRate:0.0}";
         }
     }
 }

@@ -18,10 +18,10 @@ namespace SurvivorDemo
         public GameObject bossPrefab;
 
         /// <summary>基础生成间隔（秒）</summary>
-        public float spawnInterval = 2f;
+        public float spawnInterval = 2.5f;
 
         /// <summary>最小生成间隔（秒），随时间递减到此值</summary>
-        public float minSpawnInterval = 0.4f;
+        public float minSpawnInterval = 0.8f;
 
         /// <summary>可移动区域半宽（由 GameSetup 注入，与玩家移动区域相同）</summary>
         [HideInInspector]
@@ -88,16 +88,16 @@ namespace SurvivorDemo
             }
         }
 
-        /// <summary>生成间隔随时间递减：每秒减少 0.01s，最小 0.4s</summary>
+        /// <summary>生成间隔随时间递减：每秒减少 0.005s，最小 0.8s</summary>
         private float GetCurrentSpawnInterval()
         {
-            return Mathf.Max(minSpawnInterval, spawnInterval - elapsedTime * 0.01f);
+            return Mathf.Max(minSpawnInterval, spawnInterval - elapsedTime * 0.005f);
         }
 
-        /// <summary>生成数量随时间递增：每 20 秒 +1，最多 8 个</summary>
+        /// <summary>生成数量随时间递增：每 30 秒 +1，最多 4 个</summary>
         private int GetCurrentSpawnCount()
         {
-            return Mathf.Min(8, 1 + Mathf.FloorToInt(elapsedTime / 20f));
+            return Mathf.Min(4, 1 + Mathf.FloorToInt(elapsedTime / 30f));
         }
 
         /// <summary>按权重随机选敌人类型并生成，位置限定在可移动区域内</summary>
@@ -132,10 +132,10 @@ namespace SurvivorDemo
 
             GameObject enemy = Instantiate(enemyPrefabs[selectedIndex], spawnPos, Quaternion.identity);
 
-            // 血量和伤害随分钟缩放：每分钟 ×2
+            // 血量和伤害随分钟缩放：每分钟 ×1.5（改低，避免前期就被碾压）
             int minute = Mathf.FloorToInt(elapsedTime / 60f);
-            float hpMultiplier = 1f + minute * 1.0f;
-            float dmgMultiplier = 1f + minute * 1.0f;
+            float hpMultiplier = 1f + minute * 0.5f;
+            float dmgMultiplier = 1f + minute * 0.5f;
 
             EnemyHealth health = enemy.GetComponent<EnemyHealth>();
             if (health != null)
@@ -149,6 +149,11 @@ namespace SurvivorDemo
             TriShooter shooter = enemy.GetComponent<TriShooter>();
             if (shooter != null)
                 shooter.damage *= dmgMultiplier;
+
+            // 方块怪冲锋伤害也同步缩放
+            ChargeAttacker charger = enemy.GetComponent<ChargeAttacker>();
+            if (charger != null)
+                charger.chargeDamage *= dmgMultiplier;
         }
 
         /// <summary>在可移动区域边缘生成首领，血量与技能伤害按分钟缩放</summary>
@@ -164,15 +169,15 @@ namespace SurvivorDemo
 
             GameObject boss = Instantiate(bossPrefab, spawnPos, Quaternion.identity);
 
-            // 首领血量：每分钟 ×3
+            // 首领血量：每分钟 ×2（改低，避免 3 分钟 Boss 血条离谱）
             EnemyHealth health = boss.GetComponent<EnemyHealth>();
             if (health != null)
-                health.ScaleMaxHP(1f + minute * 2f);
+                health.ScaleMaxHP(1f + minute * 1.0f);
 
             // 首领接触伤害同步缩放
             EnemyMovement movement = boss.GetComponent<EnemyMovement>();
             if (movement != null)
-                movement.contactDamage *= 1f + minute * 1.0f;
+                movement.contactDamage *= 1f + minute * 0.5f;
 
             // 首领技能伤害按时间缩放
             BossMonster bossMonster = boss.GetComponent<BossMonster>();

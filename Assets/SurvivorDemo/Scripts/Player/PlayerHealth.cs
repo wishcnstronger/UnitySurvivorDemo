@@ -108,7 +108,15 @@ namespace SurvivorDemo
             if (enemy == null)
                 return;
 
-            // 受伤（伤害值取自敌人，死亡/无敌判定在 TakeDamage 内部统一处理）
+            // 冲锋期间只结算冲锋伤害，不结算碰撞伤害
+            ChargeAttacker charger = other.GetComponent<ChargeAttacker>();
+            if (charger != null && charger.IsCharging)
+            {
+                TakeDamage(charger.chargeDamage);
+                return;
+            }
+
+            // 非冲锋：正常接触伤害（伤害值取自敌人）
             TakeDamage(enemy.contactDamage);
         }
     }

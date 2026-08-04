@@ -16,20 +16,31 @@ namespace SurvivorDemo
         /// <summary>开始界面 Canvas（点 Start 后隐藏）</summary>
         private GameObject canvasObject;
 
+        /// <summary>升级流程（开局初始三选一用，由 GameSetup 注入）</summary>
+        public LevelUpManager levelUp;
+
         private void Start()
         {
             CreateUI();
         }
 
-        /// <summary>点击开始按钮：恢复时间流速并隐藏开始界面</summary>
+        /// <summary>点击开始按钮：先隐藏开始界面，再弹出初始构筑三选一（选完才正式开始）</summary>
         private void OnStartClicked()
         {
-            // 恢复游戏（GameSetup.Awake 里 timeScale 被设为 0 暂停在开始界面）
-            Time.timeScale = 1f;
-
-            // 隐藏自身 Canvas：sortingOrder=120 最高层，不隐藏会永久盖住左上角 HUD
+            // 先隐藏自身 Canvas：sortingOrder=120 最高层，不隐藏会永久盖住左上角 HUD
             if (canvasObject != null)
                 canvasObject.SetActive(false);
+
+            // 再弹出初始三选一（复用升级面板与 OnChoiceSelected 回调，选完内部恢复 timeScale=1）
+            if (levelUp != null)
+            {
+                levelUp.ShowInitialChoice();
+            }
+            else
+            {
+                // 引用缺失 → 直接恢复时间流速兜底，宁可跳过初始选择也不卡死
+                Time.timeScale = 1f;
+            }
         }
 
         /// <summary>程序化创建 Canvas、标题、副标题和 Start 按钮</summary>

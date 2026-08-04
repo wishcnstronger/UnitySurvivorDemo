@@ -184,7 +184,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHP: 100
-  xpDropAmount: 50
+  xpDropAmount: 80
   xpOrbPrefab: {fileID: 6132089579247954804, guid: 5da18e1bc6da23f4d89c748e9986af0b,
     type: 3}
 --- !u!114 &7329137291347226818

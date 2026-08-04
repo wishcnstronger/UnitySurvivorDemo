@@ -11,7 +11,10 @@ namespace SurvivorDemo
     public static class UpgradeConfig
     {
         /// <summary>升级类型</summary>
-        public enum UpgradeType { FireRate, BulletCount, Penetration, Damage, MoveSpeed, MaxHP, Armor, MagnetRange }
+        public enum UpgradeType { FireRate, BulletCount, Penetration, Damage, MoveSpeed, MaxHP, Armor, MagnetRange, Range, XPBoost, Crit }
+
+        /// <summary>升级类型总数（PlayerStats 的 pickCounts 数组长度用）</summary>
+        public static int TypeCount => (int)UpgradeType.Crit + 1;
 
         /// <summary>稀有度（白→金→红，红为特殊卡）</summary>
         public enum Rarity { White, Green, Blue, Purple, Gold, Red }
@@ -68,6 +71,15 @@ namespace SurvivorDemo
         /// <summary>经验拾取范围：加法，作用于 magnetRange</summary>
         private static readonly float[] magnetRangeValues = { 1f, 2f, 3f, 4f, 5f };
 
+        /// <summary>射程：乘法倍率，作用于子弹寿命（越大飞得越远）</summary>
+        private static readonly float[] rangeValues = { 1.2f, 1.35f, 1.5f, 1.7f, 2.0f };
+
+        /// <summary>经验加成：加法，作用于 xpRate（经验获取倍率）</summary>
+        private static readonly float[] xpBoostValues = { 0.25f, 0.35f, 0.5f, 0.7f, 1.0f };
+
+        /// <summary>暴击率：加法（小数），作用于 critChance</summary>
+        private static readonly float[] critValues = { 0.05f, 0.08f, 0.12f, 0.18f, 0.25f };
+
         /// <summary>红卡固定值：子弹数量和穿透各 +1</summary>
         private const int RedCardValue = 1;
 
@@ -88,6 +100,9 @@ namespace SurvivorDemo
                 case UpgradeType.MaxHP: return maxHPValues[(int)def.rarity];
                 case UpgradeType.Armor: return armorValues[(int)def.rarity];
                 case UpgradeType.MagnetRange: return magnetRangeValues[(int)def.rarity];
+                case UpgradeType.Range: return rangeValues[(int)def.rarity];
+                case UpgradeType.XPBoost: return xpBoostValues[(int)def.rarity];
+                case UpgradeType.Crit: return critValues[(int)def.rarity];
                 // 子弹数量和穿透只有红卡，走到这里说明数据异常，返回 0
                 case UpgradeType.BulletCount: return 0;
                 case UpgradeType.Penetration: return 0;
@@ -108,6 +123,9 @@ namespace SurvivorDemo
                 case UpgradeType.MaxHP: return "生命提升";
                 case UpgradeType.Armor: return "护甲强化";
                 case UpgradeType.MagnetRange: return "拾取范围";
+                case UpgradeType.Range: return "射程";
+                case UpgradeType.XPBoost: return "经验加成";
+                case UpgradeType.Crit: return "暴击";
                 default: return "";
             }
         }
@@ -127,6 +145,9 @@ namespace SurvivorDemo
                 case UpgradeType.MaxHP: return $"最大生命 +{(int)value}";
                 case UpgradeType.Armor: return $"护甲 +{(int)value}";
                 case UpgradeType.MagnetRange: return $"拾取范围 +{value:0.#}";
+                case UpgradeType.Range: return $"子弹射程 ×{value:0.##}";
+                case UpgradeType.XPBoost: return $"经验获取 +{value * 100f:0}%";
+                case UpgradeType.Crit: return $"暴击率 +{value * 100f:0}%";
                 default: return "";
             }
         }
@@ -169,15 +190,16 @@ namespace SurvivorDemo
         }
 
         /// <summary>
-        /// 随机生成一张升级卡。
-        /// 5% 概率出红卡（子弹数量或穿透，固定 +1）；
-        /// 95% 概率出普通卡（6 种类型 × 5 种稀有度）。
-        /// 护甲 50% 概率替换为其他类型，降低整体出现率。
+        /// 随机生成一张升级卡（带构筑倾向）。
+        /// 15% 概率出红卡（子弹数量或穿透，固定 +1，不受倾向加权影响）；
+        /// 85% 概率出普通卡（9 种类型 × 5 种稀有度），
+        /// 类型用加权抽取：每类权重 = 1 + (已选过 ? 1.5 : 0)，选过的流派更容易再出。
+        /// 护甲 50% 概率替换为其他类型（在加权之后执行），降低整体出现率。
         /// </summary>
-        public static UpgradeDefinition RollChoice()
+        public static UpgradeDefinition RollChoice(int[] pickCounts)
         {
-            // 5% 概率出红卡
-            if (Random.Range(0f, 1f) < 0.20f)
+            // 15% 概率出红卡
+            if (Random.Range(0f, 1f) < 0.15f)
             {
                 UpgradeType redType = Random.Range(0, 2) == 0
                     ? UpgradeType.BulletCount
@@ -185,7 +207,7 @@ namespace SurvivorDemo
                 return new UpgradeDefinition(redType, Rarity.Red);
             }
 
-            // 正常卡：6 种类型（不含子弹数量和穿透）
+            // 正常卡：9 种类型（不含红卡专属的子弹数量和穿透）
             UpgradeType[] normalTypes =
             {
                 UpgradeType.FireRate,
@@ -193,19 +215,58 @@ namespace SurvivorDemo
                 UpgradeType.MoveSpeed,
                 UpgradeType.MaxHP,
                 UpgradeType.Armor,
-                UpgradeType.MagnetRange
+                UpgradeType.MagnetRange,
+                UpgradeType.Range,
+                UpgradeType.XPBoost,
+                UpgradeType.Crit
             };
 
-            Rarity rarity = RollRarity();
-            UpgradeType type = normalTypes[Random.Range(0, normalTypes.Length)];
+            // 加权选类型：选过的流派权重更高，偏向已选构筑
+            UpgradeType type = RollWeightedType(pickCounts, normalTypes);
 
-            // 护甲整体抽取概率降低：50% 概率换成其他类型
+            // 护甲整体抽取概率降低：50% 概率换成其他类型（排除护甲，重新加权选一次）
             if (type == UpgradeType.Armor && Random.Range(0f, 1f) < 0.5f)
             {
-                type = normalTypes[Random.Range(0, normalTypes.Length)];
+                UpgradeType[] noArmorTypes =
+                {
+                    UpgradeType.FireRate,
+                    UpgradeType.Damage,
+                    UpgradeType.MoveSpeed,
+                    UpgradeType.MaxHP,
+                    UpgradeType.MagnetRange,
+                    UpgradeType.Range,
+                    UpgradeType.XPBoost,
+                    UpgradeType.Crit
+                };
+                type = RollWeightedType(pickCounts, noArmorTypes);
             }
 
+            Rarity rarity = RollRarity();
             return new UpgradeDefinition(type, rarity);
+        }
+
+        /// <summary>按倾向权重从给定类型池里随机选一个类型（累加权值法）</summary>
+        private static UpgradeType RollWeightedType(int[] pickCounts, UpgradeType[] pool)
+        {
+            float total = 0f;
+            for (int i = 0; i < pool.Length; i++)
+                total += TypeWeight(pickCounts, pool[i]);
+
+            float roll = Random.Range(0f, total);
+            float cumulative = 0f;
+            for (int i = 0; i < pool.Length; i++)
+            {
+                cumulative += TypeWeight(pickCounts, pool[i]);
+                if (roll < cumulative)
+                    return pool[i];
+            }
+            return pool[pool.Length - 1]; // 兜底（浮点误差时）
+        }
+
+        /// <summary>某类型的抽卡权重：基础 1，已选过 → ×2.5（+1.5）</summary>
+        private static float TypeWeight(int[] pickCounts, UpgradeType type)
+        {
+            return 1f + (pickCounts != null && pickCounts[(int)type] > 0 ? 1.5f : 0f);
         }
     }
 }

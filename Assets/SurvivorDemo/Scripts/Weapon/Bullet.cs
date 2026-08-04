@@ -76,6 +76,23 @@ namespace SurvivorDemo
             penetration = p;
         }
 
+        /// <summary>
+        /// 设置子弹寿命（射程）。
+        /// 必须在 Start 之前调用：PlayerWeapon 在 Instantiate 后同帧调用，
+        /// 天然先于子弹自己的 Start（Start 里用 lifetime 做超时销毁）。
+        /// </summary>
+        /// <param name="value">存活时间（秒）</param>
+        public void SetLifetime(float value)
+        {
+            lifetime = value;
+        }
+
+        /// <summary>读取当前寿命（射程卡描述用）</summary>
+        public float GetLifetime()
+        {
+            return lifetime;
+        }
+
         private void Start()
         {
             // 到达存活时间后自动销毁，防止子弹永远留在场景里

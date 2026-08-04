@@ -14,6 +14,10 @@ namespace SurvivorDemo
         /// <summary>接触伤害（碰到玩家时造成的基础伤害，由 EnemySpawner 按时间缩放）</summary>
         public float contactDamage = 10f;
 
+        /// <summary>是否正在冲锋（冲锋期间跳过正常移动，由 ChargeAttacker 设置）</summary>
+        [HideInInspector]
+        public bool isCharging;
+
         /// <summary>玩家 Transform 引用</summary>
         private Transform player;
 
@@ -33,6 +37,10 @@ namespace SurvivorDemo
         {
             // 玩家不存在（已死亡或未生成）就停止
             if (player == null)
+                return;
+
+            // 冲锋期间跳过正常移动，由 ChargeAttacker 接管
+            if (isCharging)
                 return;
 
             // 朝玩家方向移动，最简单的方式

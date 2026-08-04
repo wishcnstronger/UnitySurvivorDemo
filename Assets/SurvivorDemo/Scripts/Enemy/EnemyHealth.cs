@@ -84,10 +84,69 @@ namespace SurvivorDemo
             if (xpOrbPrefab != null)
             {
                 GameObject orb = Instantiate(xpOrbPrefab, transform.position, Quaternion.identity);
+                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 XPOrb xpOrb = orb.GetComponent<XPOrb>();
                 if (xpOrb != null)
                 {
-                    xpOrb.xpValue = xpDropAmount;
+                    xpOrb.SetXP(xpDropAmount);
                 }
             }
 

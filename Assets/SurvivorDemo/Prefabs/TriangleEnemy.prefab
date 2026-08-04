@@ -170,6 +170,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 2.5
+  contactDamage: 10
+  isCharging: 0
 --- !u!114 &5122136195235350893
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -182,8 +184,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca04eb0c7b6698643acac119fa4c3003, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHP: 3
-  xpDropAmount: 5
+  maxHP: 5
+  xpDropAmount: 10
   xpOrbPrefab: {fileID: 6132089579247954804, guid: 5da18e1bc6da23f4d89c748e9986af0b,
     type: 3}
 --- !u!114 &3718657481221704896

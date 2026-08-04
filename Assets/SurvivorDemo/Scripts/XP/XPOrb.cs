@@ -90,5 +90,91 @@ namespace SurvivorDemo
             // 销毁宝石
             Destroy(gameObject);
         }
+
+        /// <summary>
+        /// 设置经验值并根据数值调整宝石外观（大小 + 颜色）。
+        /// 由 EnemyHealth.Die() 在掉落时调用。
+        /// </summary>
+        public void SetXP(int value)
+        {
+            xpValue = value;
+
+            float scale;
+            Color color;
+
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            if (value <= 20)
+            {
+                // 小宝石：绿色（圆形怪 15 XP）
+                scale = 0.5f;
+                color = Color.green;
+            }
+            else if (value <= 35)
+            {
+                // 中宝石：青色（三角怪 25 XP）
+                scale = 0.7f;
+                color = Color.cyan;
+            }
+            else if (value <= 100)
+            {
+                // 大宝石：紫色（方块怪 50 XP）
+                scale = 1.0f;
+                color = new Color(0.69f, 0.3f, 1f);
+            }
+            else
+            {
+                // 首领宝石：金色（首领 200 XP）
+                scale = 1.5f;
+                color = new Color(1f, 0.84f, 0f);
+            }
+
+            transform.localScale = new Vector3(scale, scale, 1f);
+
+            SpriteRenderer sr = GetComponent<SpriteRenderer>();
+            if (sr != null)
+                sr.color = color;
+        }
     }
 }

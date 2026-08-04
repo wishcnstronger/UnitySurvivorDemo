@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 5656124969640323732}
   - component: {fileID: 1470899122161121840}
   - component: {fileID: 7359212766228815647}
+  - component: {fileID: 768758669026738507}
   m_Layer: 8
   m_HasEditorInfo: 1
   m_Name: SquareEnemy
@@ -179,6 +180,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 1.5
+  contactDamage: 10
+  isCharging: 0
 --- !u!114 &1470899122161121840
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -192,7 +195,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHP: 15
-  xpDropAmount: 10
+  xpDropAmount: 20
   xpOrbPrefab: {fileID: 6132089579247954804, guid: 5da18e1bc6da23f4d89c748e9986af0b,
     type: 3}
 --- !u!114 &7359212766228815647
@@ -210,3 +213,19 @@ MonoBehaviour:
   barWidth: 1
   barHeight: 0.15
   barOffsetY: 0.7
+--- !u!114 &768758669026738507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4099987344247777428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1f0e785a8236584bab1cdde808c3e22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  chargeDamage: 20
+  chargeSpeed: 12
+  chargeCooldown: 4
+  chargeDuration: 0.8

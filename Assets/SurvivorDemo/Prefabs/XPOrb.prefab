@@ -166,6 +166,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 09907577c9bac59478580fd12780715f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  xpValue: 5
+  xpValue: 10
   baseSpeed: 4
   speedBoost: 6

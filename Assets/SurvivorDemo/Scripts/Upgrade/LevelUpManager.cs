@@ -68,8 +68,33 @@ namespace SurvivorDemo
             // 暂停游戏：timeScale = 0 时其他脚本 deltaTime ≈ 0，天然静止
             Time.timeScale = 0f;
 
-            // 随机生成 3 张卡，保证类型不重复
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            // 随机生成 3 张卡，保证类型不重复，且最多 1 张红卡
             List<UpgradeConfig.UpgradeDefinition> choices = new List<UpgradeConfig.UpgradeDefinition>();
+            bool hasRedCard = false;
             for (int i = 0; i < 3; i++)
             {
                 UpgradeConfig.UpgradeDefinition choice;
@@ -79,7 +104,12 @@ namespace SurvivorDemo
                     choice = RollUsableChoice();
                     attempts++;
                 }
-                while (TypeAlreadyInList(choices, choice.type) && attempts < 10);
+                while ((TypeAlreadyInList(choices, choice.type) ||
+                       (choice.rarity == UpgradeConfig.Rarity.Red && hasRedCard))
+                       && attempts < 10);
+
+                if (choice.rarity == UpgradeConfig.Rarity.Red)
+                    hasRedCard = true;
 
                 choices.Add(choice);
             }
@@ -121,14 +151,17 @@ namespace SurvivorDemo
         {
             for (int attempt = 0; attempt < 5; attempt++)
             {
-                UpgradeConfig.UpgradeDefinition def = UpgradeConfig.RollChoice();
+                UpgradeConfig.UpgradeDefinition def = UpgradeConfig.RollChoice(BuildPickCounts());
                 bool fireRateAtCap = def.type == UpgradeConfig.UpgradeType.FireRate
                                      && weapon != null
                                      && weapon.IsFireRateAtCap();
                 bool armorAtCap = def.type == UpgradeConfig.UpgradeType.Armor
                                   && stats != null
                                   && stats.IsArmorAtCap();
-                if (!fireRateAtCap && !armorAtCap)
+                bool critAtCap = def.type == UpgradeConfig.UpgradeType.Crit
+                                 && weapon != null
+                                 && weapon.IsCritAtCap();
+                if (!fireRateAtCap && !armorAtCap && !critAtCap)
                     return def;
             }
             // 多次重摇仍未避开（理论上不会出现），接受最后一次结果
@@ -193,7 +226,7 @@ namespace SurvivorDemo
 
 
 
-            return UpgradeConfig.RollChoice();
+            return UpgradeConfig.RollChoice(BuildPickCounts());
         }
 
         /// <summary>检查类型是否已在列表中（用于保证三张卡不重复）</summary>
@@ -249,7 +282,62 @@ namespace SurvivorDemo
                 case UpgradeConfig.UpgradeType.MagnetRange:
                     stats.AddMagnetRange(value);
                     break;
+
+                case UpgradeConfig.UpgradeType.Range:
+                    if (weapon != null) weapon.AddBulletRange(value);
+                    break;
+
+                case UpgradeConfig.UpgradeType.XPBoost:
+                    stats.AddXPRate(value);
+                    break;
+
+                case UpgradeConfig.UpgradeType.Crit:
+                    if (weapon != null) weapon.AddCritChance(value);
+                    break;
             }
+
+            // 记录本次选择（构筑倾向统计，抽卡加权时偏向已选流派）
+            stats.RecordPick(def.type);
+        }
+
+        /// <summary>
+        /// 开局初始三选一（Start 按钮点击后调用）。
+        /// 完全复用 OnChoiceSelected 回调路径，不新增选择状态。
+        /// 调用时 timeScale 仍为 0（开始界面暂停中），选完 OnChoiceSelected 才恢复游戏。
+        /// </summary>
+        public void ShowInitialChoice()
+        {
+            if (upgradeUI == null)
+            {
+                if (!uiMissingLogged)
+                {
+                    uiMissingLogged = true;
+                    Debug.LogError("LevelUpManager 缺少 UpgradeUI 引用！");
+                }
+                return;
+            }
+
+            // 置位选择中，防止与升级流程冲突
+            isChoosing = true;
+
+            // 三张固定卡：攻势（攻击力）/ 弹幕（子弹数量）/ 生存（生命）
+            List<UpgradeConfig.UpgradeDefinition> choices = new List<UpgradeConfig.UpgradeDefinition>
+            {
+                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.Damage, UpgradeConfig.Rarity.Green),
+                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.BulletCount, UpgradeConfig.Rarity.Red),
+                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.MaxHP, UpgradeConfig.Rarity.Blue)
+            };
+
+            upgradeUI.Show(choices, OnChoiceSelected);
+        }
+
+        /// <summary>把玩家每种升级类型的选择次数打包成数组（RollChoice 加权用）</summary>
+        private int[] BuildPickCounts()
+        {
+            int[] counts = new int[UpgradeConfig.TypeCount];
+            for (int i = 0; i < counts.Length; i++)
+                counts[i] = stats != null ? stats.GetPickCount((UpgradeConfig.UpgradeType)i) : 0;
+            return counts;
         }
     }
 }

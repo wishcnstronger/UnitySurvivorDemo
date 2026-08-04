@@ -68,12 +68,15 @@ namespace SurvivorDemo
             CreateGround();
             CreatePlayArea();
             SetupEnemySpawnerBounds();
-            CreatePlayer();
+            GameObject player = CreatePlayer();
             SetupCamera();
 
             // 开始界面：挂独立 GameObject（不挂 Player），sortingOrder=120 最高层
             GameObject startScreenObj = new GameObject("StartScreenUI");
             startScreen = startScreenObj.AddComponent<StartScreenUI>();
+
+            // 注入初始构筑选择：点 Start 后弹出三选一（选完才开始游戏）
+            startScreen.levelUp = player.GetComponent<LevelUpManager>();
         }
 
         private void CreateGround()
@@ -335,7 +338,8 @@ namespace SurvivorDemo
         }
 
 
-        private void CreatePlayer()
+        /// <summary>创建玩家并返回其 GameObject（Awake 用返回值注入初始构筑选择）</summary>
+        private GameObject CreatePlayer()
         {
             GameObject player = new GameObject("Player");
             player.tag = "Player"; // Enemy 通过 Tag 查找 Player
@@ -429,6 +433,8 @@ namespace SurvivorDemo
 
             // 缓存玩家引用，供摄像机跟随使用
             playerTransform = player.transform;
+
+            return player;
         }
 
         /// <summary>

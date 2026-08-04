@@ -169,6 +169,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 3
+  contactDamage: 10
+  isCharging: 0
 --- !u!114 &4953819498475981571
 MonoBehaviour:
   m_ObjectHideFlags: 0

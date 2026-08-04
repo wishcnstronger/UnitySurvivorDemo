@@ -27,18 +27,25 @@ namespace SurvivorDemo
         [SerializeField, Tooltip("当前经验值")]
         private float currentXP = 0f;
 
-        [SerializeField, Tooltip("升级所需经验值（第一级需求，升级后按 xpStep 递增）")]
+        [SerializeField, Tooltip("升级所需经验值（第一级需求，升级后按 xpGrowth 倍率增长）")]
         private float xpToNextLevel = 10f;
 
-        [SerializeField, Tooltip("每升一级额外增加的经验需求")]
-        private float xpStep = 5f;
+        [SerializeField, Tooltip("每升一级经验需求的增长倍率（乘法曲线：10 → 12 → 13 → 15...）")]
+        private float xpGrowth = 1.15f;
 
         [Header("等级")]
         [SerializeField, Tooltip("当前等级")]
         private int level = 1;
 
+        [Header("构筑")]
+        [SerializeField, Tooltip("经验获取倍率（经验加成卡提升，1 = 无加成）")]
+        private float xpRate = 1f;
+
         /// <summary>待处理的升级次数（升级时 +1，三选一选择后 -1）</summary>
         public int pendingLevelUps = 0;
+
+        /// <summary>每种升级类型被选中的次数（构筑倾向，实例字段：重开新玩家自动清零，无需 static）</summary>
+        private int[] pickCounts = new int[UpgradeConfig.TypeCount];
 
         // --- 运行时状态 ---
         private float currentHP;
@@ -51,6 +58,7 @@ namespace SurvivorDemo
         public float CurrentXP => currentXP;
         public float XPToNextLevel => xpToNextLevel;
         public int Level => level;
+        public float XPRate => xpRate;
 
         private void Awake()
         {
@@ -75,14 +83,15 @@ namespace SurvivorDemo
         /// </summary>
         public void AddXP(int amount)
         {
-            currentXP += amount;
+            // 经验加成倍率只作用于实际获得值，宝石外观/拾取逻辑不动
+            currentXP += amount * xpRate;
 
             // 经验满就升级，可能一次连升多级
             while (currentXP >= xpToNextLevel)
             {
                 currentXP -= xpToNextLevel;
                 level++;
-                xpToNextLevel += xpStep; // 升级经验曲线：从 Inspector 初始值起按 xpStep 递增（10, 15, 20...）
+                xpToNextLevel = Mathf.Ceil(xpToNextLevel * xpGrowth); // 乘法曲线：10 → 12 → 13 → 15...
                 pendingLevelUps++;
             }
         }
@@ -130,6 +139,24 @@ namespace SurvivorDemo
         public void AddMagnetRange(float amount)
         {
             magnetRange += amount;
+        }
+
+        /// <summary>记录一次升级选择（构筑倾向统计，由升级流程在应用强化后调用）</summary>
+        public void RecordPick(UpgradeConfig.UpgradeType type)
+        {
+            pickCounts[(int)type]++;
+        }
+
+        /// <summary>查询某类型已被选择的次数（抽卡加权用：选过的流派更容易再出）</summary>
+        public int GetPickCount(UpgradeConfig.UpgradeType type)
+        {
+            return pickCounts[(int)type];
+        }
+
+        /// <summary>经验获取倍率加法强化（经验加成卡调用）</summary>
+        public void AddXPRate(float amount)
+        {
+            xpRate += amount;
         }
 
         /// <summary>

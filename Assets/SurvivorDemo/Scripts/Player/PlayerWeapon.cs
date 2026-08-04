@@ -33,6 +33,15 @@ namespace SurvivorDemo
         /// <summary>攻速上限（最小攻击间隔秒），攻速再高也不会低于此值</summary>
         public float minFireInterval = 0.1f;
 
+        /// <summary>子弹寿命（秒），即射程——子弹飞行这么久后自动销毁（射程卡提升）</summary>
+        public float bulletLifetime = 2f;
+
+        /// <summary>暴击率（小数，0.05 = 5%），每颗子弹独立判定</summary>
+        public float critChance = 0.05f;
+
+        /// <summary>暴击倍率（暴击时伤害 × 此值）</summary>
+        public float critMultiplier = 2f;
+
         /// <summary>攻击计时器，累计到 fireInterval 时开火</summary>
         private float timer;
 
@@ -83,13 +92,18 @@ namespace SurvivorDemo
                 // 模板是隐藏的，生成后激活它
                 bullet.SetActive(true);
 
-                // 把方向、伤害、穿透告诉子弹
+                // 每颗子弹独立判定暴击：暴击只加倍伤害，不影响穿透/子弹数
+                float dmg = Random.value < critChance ? damage * critMultiplier : damage;
+
+                // 把方向、伤害（含暴击）、穿透、寿命告诉子弹。
+                // SetLifetime 在 Instantiate 之后、Start 之前同帧调用，先于子弹的 Destroy(gameObject, lifetime)
                 Bullet bulletComp = bullet.GetComponent<Bullet>();
                 if (bulletComp != null)
                 {
                     bulletComp.SetDirection(dir);
-                    bulletComp.SetDamage(damage);
+                    bulletComp.SetDamage(dmg);
                     bulletComp.SetPenetration(penetration);
+                    bulletComp.SetLifetime(bulletLifetime);
                 }
             }
         }
@@ -140,6 +154,24 @@ namespace SurvivorDemo
         public void AddPenetration(int count)
         {
             penetration += count;
+        }
+
+        /// <summary>射程乘法强化：子弹寿命 × factor（越大飞得越远）</summary>
+        public void AddBulletRange(float factor)
+        {
+            bulletLifetime *= factor;
+        }
+
+        /// <summary>暴击率加法强化，上限 60%（暴击卡调用）</summary>
+        public void AddCritChance(float amount)
+        {
+            critChance = Mathf.Min(0.6f, critChance + amount);
+        }
+
+        /// <summary>暴击率是否已到上限（抽卡时用于排除零收益暴击卡）</summary>
+        public bool IsCritAtCap()
+        {
+            return critChance >= 0.6f;
         }
 
         /// <summary>
