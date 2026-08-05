@@ -30,6 +30,9 @@ namespace SurvivorDemo
         /// <summary>是否已销毁（Destroy 延迟到帧末，用标记短路同帧后续的碰撞回调）</summary>
         private bool destroyed;
 
+        /// <summary>是否暴击（由 PlayerWeapon 发射时传入）</summary>
+        private bool isCrit;
+
         /// <summary>飞行方向（由 PlayerWeapon 发射时传入）</summary>
         private Vector2 direction;
 
@@ -74,6 +77,14 @@ namespace SurvivorDemo
         public void SetPenetration(int p)
         {
             penetration = p;
+        }
+
+        /// <summary>
+        /// 设置是否暴击。
+        /// </summary>
+        public void SetCrit(bool value)
+        {
+            isCrit = value;
         }
 
         /// <summary>
@@ -130,7 +141,7 @@ namespace SurvivorDemo
 
             // 记录本次命中并造成伤害
             hitEnemies.Add(enemy);
-            enemy.ReceiveDamage(damage);
+            enemy.ReceiveDamage(damage, isCrit);
 
             // 还有穿透次数 → 继续飞行；否则销毁
             if (penetration > 0)

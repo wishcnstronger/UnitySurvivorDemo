@@ -130,3 +130,9 @@ Desktop.ini
 .codely-cli/
 .codely/clipboard/
 screenshots/
+
+# ====================
+# SFX 生成工具输出备份（非游戏资源，实际音效在 Assets/Resources/SFX/）
+# ====================
+/Assets/TJGenerators/
+/Assets/TJGenerators.meta

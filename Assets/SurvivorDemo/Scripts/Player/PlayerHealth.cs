@@ -84,6 +84,9 @@ namespace SurvivorDemo
             // 受伤：调用 PlayerStats.TakeDamage（复用护甲减伤公式，不重写扣血逻辑）
             stats.TakeDamage(amount);
 
+            // C2: 受伤音效
+            AudioManager.Instance?.PlaySFX("player_hurt", 0.7f);
+
             // 血量归零 → 标记死亡（之后 GameOverUI 每帧轮询到血量 0 会弹结算）
             if (stats.CurrentHP <= 0f)
             {

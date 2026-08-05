@@ -30,6 +30,13 @@ namespace SurvivorDemo
 
         private void Update()
         {
+            // 死亡后停止移动
+            if (stats.CurrentHP <= 0f)
+            {
+                rb.velocity = Vector2.zero;
+                return;
+            }
+
             // 读取输入
             float horizontal = Input.GetAxisRaw("Horizontal");
             float vertical = Input.GetAxisRaw("Vertical");

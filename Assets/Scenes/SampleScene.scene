@@ -162,8 +162,8 @@ MonoBehaviour:
     type: 3}
   spawnInterval: 2
   minSpawnInterval: 0.4
-  spawnMinDistance: 8
-  spawnMaxDistance: 10
+  boundX: 18
+  boundY: 18
 --- !u!4 &96989250
 Transform:
   m_ObjectHideFlags: 0
@@ -529,6 +529,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   groundColor: {r: 0.15, g: 0.15, b: 0.15, a: 1}
   groundSize: {x: 40, y: 40}
+  playAreaSize: {x: 36, y: 36}
+  playAreaColor: {r: 0.22, g: 0.22, b: 0.22, a: 1}
+  borderColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
+  borderThickness: 0.3
   playerColor: {r: 0, g: 1, b: 1, a: 1}
   playerRadius: 0.5
   cameraBackground: {r: 1, g: 1, b: 1, a: 1}

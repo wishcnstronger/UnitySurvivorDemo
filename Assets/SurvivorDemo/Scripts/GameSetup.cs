@@ -70,6 +70,7 @@ namespace SurvivorDemo
             SetupEnemySpawnerBounds();
             GameObject player = CreatePlayer();
             SetupCamera();
+            SetupCombatSystems();
 
             // 开始界面：挂独立 GameObject（不挂 Player），sortingOrder=120 最高层
             GameObject startScreenObj = new GameObject("StartScreenUI");
@@ -537,6 +538,26 @@ namespace SurvivorDemo
             mainCam.orthographicSize = cameraSize;
             mainCam.backgroundColor = cameraBackground;
             mainCam.transform.position = new Vector3(0f, 0f, -10f);
+
+            // 战斗手感：顿帧控制器
+            if (mainCam.GetComponent<HitStopController>() == null)
+                mainCam.gameObject.AddComponent<HitStopController>();
+        }
+
+        /// <summary>创建音效与特效管理单例（仅首次）</summary>
+        private void SetupCombatSystems()
+        {
+            if (AudioManager.Instance == null)
+            {
+                GameObject audioObj = new GameObject("AudioManager");
+                audioObj.AddComponent<AudioManager>();
+            }
+
+            if (CombatVFX.Instance == null)
+            {
+                GameObject vfxObj = new GameObject("CombatVFX");
+                vfxObj.AddComponent<CombatVFX>();
+            }
         }
 
         private void LateUpdate()

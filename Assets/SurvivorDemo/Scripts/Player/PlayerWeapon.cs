@@ -34,7 +34,7 @@ namespace SurvivorDemo
         public float minFireInterval = 0.1f;
 
         /// <summary>子弹寿命（秒），即射程——子弹飞行这么久后自动销毁（射程卡提升）</summary>
-        public float bulletLifetime = 2f;
+        public float bulletLifetime = 0.8f;
 
         /// <summary>暴击率（小数，0.05 = 5%），每颗子弹独立判定</summary>
         public float critChance = 0.05f;
@@ -45,8 +45,20 @@ namespace SurvivorDemo
         /// <summary>攻击计时器，累计到 fireInterval 时开火</summary>
         private float timer;
 
+        /// <summary>玩家属性（死亡判定用）</summary>
+        private PlayerStats stats;
+
+        private void Awake()
+        {
+            stats = GetComponent<PlayerStats>();
+        }
+
         private void Update()
         {
+            // 死亡后停止攻击
+            if (stats != null && stats.CurrentHP <= 0f)
+                return;
+
             // 累加计时
             timer += Time.deltaTime;
 
@@ -93,7 +105,8 @@ namespace SurvivorDemo
                 bullet.SetActive(true);
 
                 // 每颗子弹独立判定暴击：暴击只加倍伤害，不影响穿透/子弹数
-                float dmg = Random.value < critChance ? damage * critMultiplier : damage;
+                bool isCrit = Random.value < critChance;
+                float dmg = isCrit ? damage * critMultiplier : damage;
 
                 // 把方向、伤害（含暴击）、穿透、寿命告诉子弹。
                 // SetLifetime 在 Instantiate 之后、Start 之前同帧调用，先于子弹的 Destroy(gameObject, lifetime)
@@ -104,8 +117,12 @@ namespace SurvivorDemo
                     bulletComp.SetDamage(dmg);
                     bulletComp.SetPenetration(penetration);
                     bulletComp.SetLifetime(bulletLifetime);
+                    bulletComp.SetCrit(isCrit);
                 }
             }
+
+            // C2: 射击音效
+            AudioManager.Instance?.PlaySFX("shoot", 0.3f);
         }
 
         /// <summary>
