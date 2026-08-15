@@ -148,25 +148,25 @@ namespace SurvivorDemo
             if (value <= 20)
             {
                 // 小宝石：绿色（圆形怪 15 XP）
-                scale = 0.5f;
+                scale = 0.75f;
                 color = Color.green;
             }
             else if (value <= 35)
             {
                 // 中宝石：青色（三角怪 25 XP）
-                scale = 0.7f;
+                scale = 1.05f;
                 color = Color.cyan;
             }
             else if (value <= 100)
             {
                 // 大宝石：紫色（方块怪 50 XP）
-                scale = 1.0f;
+                scale = 1.5f;
                 color = new Color(0.69f, 0.3f, 1f);
             }
             else
             {
                 // 首领宝石：金色（首领 200 XP）
-                scale = 1.5f;
+                scale = 2.25f;
                 color = new Color(1f, 0.84f, 0f);
             }
 

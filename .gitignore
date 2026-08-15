@@ -136,3 +136,13 @@ screenshots/
 # ====================
 /Assets/TJGenerators/
 /Assets/TJGenerators.meta
+
+# ====================
+# 看图工具密钥（本地私有，不提交 git）
+# ====================
+Tools/.vision_key
+
+# ====================
+# MCP 会话文件（本地运行时状态，不提交）
+# ====================
+Tools/.mcp_session_id

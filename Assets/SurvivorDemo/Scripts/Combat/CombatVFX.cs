@@ -16,6 +16,18 @@ namespace SurvivorDemo
         /// <summary>缓存的圆形 Sprite（特效通用）</summary>
         private Sprite circleSprite;
 
+        /// <summary>光圈特效最大活跃数量（P3 上限，满员不生成，防止每击创建对象无上限）</summary>
+        public int maxRings = 20;
+
+        /// <summary>伤害数字最大活跃数量（P3 上限，满员不生成）</summary>
+        public int maxDamageNumbers = 20;
+
+        /// <summary>当前活跃光圈数</summary>
+        private int activeRings;
+
+        /// <summary>当前活跃伤害数字数</summary>
+        private int activeDamageNumbers;
+
         private void Awake()
         {
             if (Instance != null)
@@ -32,6 +44,11 @@ namespace SurvivorDemo
         /// </summary>
         public void SpawnHitRing(Vector2 position, Color color)
         {
+            // 满员时直接不生成（简单计数上限，不引入对象池框架）
+            if (activeRings >= maxRings)
+                return;
+            activeRings++;
+
             GameObject ring = new GameObject("HitRing");
             ring.transform.position = position;
 
@@ -74,6 +91,11 @@ namespace SurvivorDemo
         /// </summary>
         public void SpawnDamageNumber(Vector2 position, float damage, bool isCrit)
         {
+            // 满员时直接不生成（简单计数上限，不引入对象池框架）
+            if (activeDamageNumbers >= maxDamageNumbers)
+                return;
+            activeDamageNumbers++;
+
             GameObject textObj = new GameObject("DamageNumber");
             textObj.transform.position = new Vector3(position.x, position.y + 0.5f, 0f);
 
@@ -107,6 +129,7 @@ namespace SurvivorDemo
                 yield return null;
             }
 
+            activeRings--; // 动画结束，释放计数
             Destroy(go);
         }
 
@@ -179,6 +202,7 @@ namespace SurvivorDemo
                 yield return null;
             }
 
+            activeDamageNumbers--; // 动画结束，释放计数
             Destroy(go);
         }
     }

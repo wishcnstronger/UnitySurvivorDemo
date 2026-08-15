@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -6,8 +7,9 @@ namespace SurvivorDemo
 {
     /// <summary>
     /// 游戏结束界面（挂在 Player 上）。
-    /// 每帧轮询玩家血量：归零 → 弹出结算面板（暂停游戏）→ 点击重新开始调用 GameSetup.ResetGame()。
+    /// 每帧轮询玩家血量：归零 → 弹出结算面板（暂停游戏 + 弹出动画）→ 点击重新开始调用 GameSetup.ResetGame()。
     /// 和升级界面一样用 timeScale = 0 暂停，用 isShown 标志防止重复弹窗。
+    /// 视觉：金色边框 + 深红标题条 + 分级配色统计 + 悬停变色按钮。
     /// </summary>
     public class GameOverUI : MonoBehaviour
     {
@@ -25,6 +27,13 @@ namespace SurvivorDemo
 
         /// <summary>结算面板根节点（初始隐藏）</summary>
         private GameObject panel;
+
+        /// <summary>
+        /// 金色外框（比面板大一圈，面板激活时露 12px 金边）。
+        /// 必须与面板同显同隐：单独激活时是 624×674 的实心金块，
+        /// 会盖住屏幕中央（玩家/升级三选一卡片），见 Phase5 bug。
+        /// </summary>
+        private GameObject frame;
 
         /// <summary>统计文字</summary>
         private Text timeText;
@@ -62,7 +71,7 @@ namespace SurvivorDemo
             }
         }
 
-        /// <summary>显示结算面板：暂停游戏、填入统计、显示面板</summary>
+        /// <summary>显示结算面板：暂停游戏、填入统计、播放弹出动画</summary>
         private void Show()
         {
             // 防止重复弹窗
@@ -86,7 +95,30 @@ namespace SurvivorDemo
             killsText.text = $"击杀数：{GameStats.kills}";
             buildText.text = BuildSummaryText();
 
+            // 外框与面板同显（外框是面板的金边，只在结算时可见）
+            if (frame != null)
+                frame.SetActive(true);
             panel.SetActive(true);
+            panel.transform.localScale = new Vector3(0.85f, 0.85f, 1f);
+            StartCoroutine(ScaleIn());
+        }
+
+        /// <summary>弹出动画：0.85 → 1.0 缓动放大（0.2 秒，ease-out cubic）</summary>
+        private IEnumerator ScaleIn()
+        {
+            float duration = 0.2f;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = elapsed / duration;
+                t = 1f - Mathf.Pow(1f - t, 3f); // ease-out cubic：先快后慢
+                panel.transform.localScale = new Vector3(0.85f + 0.15f * t, 0.85f + 0.15f * t, 1f);
+                yield return null;
+            }
+
+            panel.transform.localScale = Vector3.one;
         }
 
         /// <summary>点击重新开始：调用 GameSetup.ResetGame() 清空并重建整个游戏</summary>
@@ -127,7 +159,13 @@ namespace SurvivorDemo
                 esObj.AddComponent<StandaloneInputModule>();
             }
 
-            // 3. 居中半透明面板
+            // 3. 金色边框（比面板大一圈，形成外框）
+            RectTransform frameRect = CreatePanelRect(canvasObj.transform, "GameOverFrame", new Vector2(624f, 674f), Vector2.zero);
+            frame = frameRect.gameObject;
+            Image frameImage = frame.AddComponent<Image>();
+            frameImage.color = new Color(0.85f, 0.62f, 0.2f, 0.95f); // 金色外框
+
+            // 4. 居中深色面板（边框内部）
             panel = new GameObject("GameOverPanel");
             panel.transform.SetParent(canvasObj.transform, false);
 
@@ -139,53 +177,68 @@ namespace SurvivorDemo
             pRect.anchoredPosition = Vector2.zero;
 
             Image pImage = panel.AddComponent<Image>();
-            pImage.color = new Color(0f, 0f, 0f, 0.85f); // 深色背景
+            pImage.color = new Color(0.06f, 0.06f, 0.1f, 0.95f); // 深蓝黑背景
 
             Font font = UIFont.Get();
 
-            // 4. 标题
+            // 5. 深红标题条（面板顶部）
+            RectTransform strip = CreatePanelRect(panel.transform, "TitleStrip", new Vector2(600f, 90f), new Vector2(0f, 325f - 45f));
+            Image stripImage = strip.gameObject.AddComponent<Image>();
+            stripImage.color = new Color(0.42f, 0.06f, 0.06f, 1f);
+
+            // 6. 标题（深红条内，浅红大字）
             GameObject titleObj = new GameObject("Title");
-            titleObj.transform.SetParent(panel.transform, false);
+            titleObj.transform.SetParent(strip.transform, false);
 
             RectTransform titleRect = titleObj.AddComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0.5f, 1f);
-            titleRect.anchorMax = new Vector2(0.5f, 1f);
-            titleRect.pivot = new Vector2(0.5f, 1f);
-            titleRect.anchoredPosition = new Vector2(0f, -40f);
+            titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            titleRect.pivot = new Vector2(0.5f, 0.5f);
+            titleRect.anchoredPosition = Vector2.zero;
             titleRect.sizeDelta = new Vector2(500f, 80f);
 
             Text title = titleObj.AddComponent<Text>();
             title.text = "游戏结束";
             title.font = font;
-            title.fontSize = 60;
+            title.fontSize = 56;
             title.alignment = TextAnchor.MiddleCenter;
-            title.color = Color.white;
+            title.color = new Color(1f, 0.35f, 0.35f); // 浅红
+            AddOutline(title);
 
-            // 5. 三行统计
-            timeText = CreateStatLine(panel.transform, font, "存活时间：--:--", 0.6f);
-            levelText = CreateStatLine(panel.transform, font, "等级：-", 0.47f);
-            killsText = CreateStatLine(panel.transform, font, "击杀数：-", 0.34f);
+            // 7. 三行统计（标题条下方，分级配色：时间白 / 等级浅蓝 / 击杀金）
+            timeText = CreateStatLine(panel.transform, font, "存活时间：--:--", 0.62f, Color.white);
+            levelText = CreateStatLine(panel.transform, font, "等级：-", 0.5f, new Color(0.5f, 0.9f, 1f));
+            killsText = CreateStatLine(panel.transform, font, "击杀数：-", 0.38f, new Color(1f, 0.85f, 0.3f));
 
-            // 6. 构筑属性小字（击杀数下方，白 24 号，纯展示只读）
+            // 8. 构筑属性小字（击杀数下方，白 24 号，纯展示只读）
             buildText = CreateBuildText(panel.transform, font);
 
-            // 7. 重新开始按钮（白底黑字）
+            // 9. 重新开始按钮（深棕底 + 金色边框 + 金色文字 + 悬停效果，与 StartScreen 统一）
+            // 外框（金色边框）
+            RectTransform btnBorder = CreatePanelRect(panel.transform, "RestartButtonBorder", new Vector2(244f, 84f), new Vector2(0f, 15f + 35f));
+            Image btnBorderImage = btnBorder.gameObject.AddComponent<Image>();
+            btnBorderImage.color = UIDungeonTheme.GoldBorder;
+            btnBorderImage.raycastTarget = false;
+
+            // 按钮本体
             GameObject btnObj = new GameObject("RestartButton");
-            btnObj.transform.SetParent(panel.transform, false);
+            btnObj.transform.SetParent(btnBorder.transform, false);
 
             RectTransform btnRect = btnObj.AddComponent<RectTransform>();
-            btnRect.anchorMin = new Vector2(0.5f, 0f);
-            btnRect.anchorMax = new Vector2(0.5f, 0f);
-            btnRect.pivot = new Vector2(0.5f, 0f);
-            btnRect.anchoredPosition = new Vector2(0f, 15f);
-            btnRect.sizeDelta = new Vector2(240f, 70f);
+            btnRect.anchorMin = new Vector2(0.5f, 0.5f);
+            btnRect.anchorMax = new Vector2(0.5f, 0.5f);
+            btnRect.pivot = new Vector2(0.5f, 0.5f);
+            btnRect.anchoredPosition = Vector2.zero;
+            btnRect.sizeDelta = new Vector2(240f, 80f);
 
             Image btnImage = btnObj.AddComponent<Image>();
-            btnImage.color = Color.white;
+            btnImage.color = UIDungeonTheme.BtnNormal;
 
             Button button = btnObj.AddComponent<Button>();
             button.targetGraphic = btnImage;
             button.onClick.AddListener(OnRestartClicked);
+            UIDungeonTheme.StyleButton(button);
+            UIDungeonTheme.AddHoverScale(btnObj, 1.06f);
 
             // 按钮文字
             GameObject btnTextObj = new GameObject("RestartText");
@@ -200,19 +253,37 @@ namespace SurvivorDemo
             Text btnText = btnTextObj.AddComponent<Text>();
             btnText.text = "重新开始";
             btnText.font = font;
-            btnText.fontSize = 40;
+            btnText.fontSize = 36;
             btnText.alignment = TextAnchor.MiddleCenter;
-            btnText.color = Color.black;
+            btnText.color = UIDungeonTheme.GoldText;
+            btnText.raycastTarget = false;
 
-            // 初始隐藏
+            // 初始隐藏（外框必须一起隐藏：单独显示时是实心金块，会盖住屏幕中央）
+            if (frame != null)
+                frame.SetActive(false);
             panel.SetActive(false);
+        }
+
+        /// <summary>创建中心锚定的矩形（面板/条带用）</summary>
+        private static RectTransform CreatePanelRect(Transform parent, string name, Vector2 size, Vector2 center)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+
+            RectTransform rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = center;
+            return rect;
         }
 
         /// <summary>
         /// 创建一行统计文字。
         /// anchorY 指定文字在面板内的垂直位置（0 底部 ~ 1 顶部）。
         /// </summary>
-        private Text CreateStatLine(Transform parent, Font font, string content, float anchorY)
+        private Text CreateStatLine(Transform parent, Font font, string content, float anchorY, Color color)
         {
             GameObject textObj = new GameObject("StatText");
             textObj.transform.SetParent(parent, false);
@@ -229,7 +300,8 @@ namespace SurvivorDemo
             text.font = font;
             text.fontSize = 36;
             text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
+            text.color = color;
+            AddOutline(text);
 
             return text;
         }
@@ -255,8 +327,17 @@ namespace SurvivorDemo
             text.color = Color.white;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Overflow;
+            AddOutline(text);
 
             return text;
+        }
+
+        /// <summary>给文字加黑色描边，保证在深色背景上可读</summary>
+        private static void AddOutline(Text text)
+        {
+            Outline outline = text.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            outline.effectDistance = new Vector2(2f, -2f);
         }
 
         /// <summary>拼装本局最终强化属性字符串（只读不改，纯展示）</summary>

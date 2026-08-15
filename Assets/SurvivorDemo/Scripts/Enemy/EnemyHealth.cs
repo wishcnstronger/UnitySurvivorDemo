@@ -30,95 +30,6 @@ namespace SurvivorDemo
 
         // ======== 战斗手感相关 ========
 
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         /// <summary>精灵渲染器（用于击中闪白、死亡淡出）</summary>
         private SpriteRenderer spriteRenderer;
 
@@ -134,6 +45,8 @@ namespace SurvivorDemo
         /// <summary>击中缩放协程引用（防止与死亡消散冲突）</summary>
         private Coroutine punchCoroutine;
 
+        /// <summary>顿帧控制器引用（缓存在摄像机上，去掉每击 Camera.main 查找）</summary>
+        private HitStopController hitStop;
 
         private void Awake()
         {
@@ -143,6 +56,9 @@ namespace SurvivorDemo
             if (spriteRenderer != null)
                 originalColor = spriteRenderer.color;
             originalScale = transform.localScale;
+
+            // 缓存顿帧控制器：敌人生成时摄像机已存在（GameSetup.Awake 先创建）
+            hitStop = Camera.main != null ? Camera.main.GetComponent<HitStopController>() : null;
         }
 
         /// <summary>
@@ -170,6 +86,9 @@ namespace SurvivorDemo
 
             currentHP -= amount;
 
+            // 本次是否击杀（用于决定顿帧/音效行为）
+            bool isKill = currentHP <= 0f;
+
             // 更新血条显示
             if (healthBar != null)
             {
@@ -184,115 +103,6 @@ namespace SurvivorDemo
                 flashCoroutine = StartCoroutine(FlashWhite());
             }
 
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             // A3: 击中光圈（暴击黄色）
             CombatVFX.Instance?.SpawnHitRing(transform.position, isCrit ? Color.yellow : Color.white);
 
@@ -304,15 +114,18 @@ namespace SurvivorDemo
                 StopCoroutine(punchCoroutine);
             punchCoroutine = StartCoroutine(HitPunch(isCrit));
 
-            // C2: 击中音效
-            AudioManager.Instance?.PlaySFX(isCrit ? "crit_hit" : "hit", 0.5f);
+            // C2: 击中音效（击杀时跳过——死亡音效 Die() 里已有，避免双响）
+            if (!isKill)
+                AudioManager.Instance?.PlaySFX(isCrit ? "crit_hit" : "hit", 0.5f);
 
-            // E1: 顿帧（暴击更长）
-            HitStopController hitStop = Camera.main != null ? Camera.main.GetComponent<HitStopController>() : null;
-            hitStop?.Stop(isCrit ? 0.08f : 0.04f);
+            // E1: 顿帧——只在 暴击 / 击杀 / Boss 命中 时触发，普通命中不顿帧，
+            //     防止高频命中把 timeScale 长时间钉在慢动作（触发间隔由 HitStopController 兜底）
+            bool isBoss = GetComponent<BossMonster>() != null;
+            if (isCrit || isKill || isBoss)
+                hitStop?.Stop(isCrit ? 0.08f : 0.04f);
 
             // 血量归零 → 死亡
-            if (currentHP <= 0f)
+            if (isKill)
             {
                 Die();
             }
@@ -339,259 +152,17 @@ namespace SurvivorDemo
                 }
             }
 
+            // B1修复：死亡前恢复原色。
+            // 否则闪白会把粒子颜色和淡出起点都变成白色，失去怪物颜色区分。
+            if (spriteRenderer != null)
+                spriteRenderer.color = originalColor;
+
             // B2: 死亡爆炸粒子
             Color deathColor = spriteRenderer != null ? spriteRenderer.color : Color.red;
             CombatVFX.Instance?.SpawnDeathParticles(transform.position, deathColor, 10);
 
             // C2: 死亡音效
             AudioManager.Instance?.PlaySFX("death", 0.6f);
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             // 禁用所有行为脚本（移动、攻击等），保留自身用于协程
             foreach (var comp in GetComponents<MonoBehaviour>())

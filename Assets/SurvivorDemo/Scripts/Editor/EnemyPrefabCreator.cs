@@ -18,9 +18,9 @@ namespace SurvivorDemo
         private const string BossPrefabPath = "Assets/SurvivorDemo/Prefabs/BossEnemy.prefab";
 
         // ===== Sprite 路径 =====
-        private const string EnemySpritePath = "Assets/SurvivorDemo/Art/Sprites/EnemySprite.png";
-        private const string TriangleSpritePath = "Assets/SurvivorDemo/Art/Sprites/TriangleSprite.png";
-        private const string SquareSpritePath = "Assets/SurvivorDemo/Art/Sprites/SquareSprite.png";
+        private const string EnemySpritePath = "Assets/Resources/Sprites/EnemyZombie.png";
+        private const string TriangleSpritePath = "Assets/Resources/Sprites/StaffMonster.png";
+        private const string SquareSpritePath = "Assets/Resources/Sprites/HeavyMonster.png";
         private const string EnemyBulletSpritePath = "Assets/SurvivorDemo/Art/Sprites/EnemyBulletSprite.png";
         private const string BossSpritePath = "Assets/SurvivorDemo/Art/Sprites/BossSprite.png";
 
@@ -31,165 +31,8 @@ namespace SurvivorDemo
         public static void CreateEnemyPrefab()
         {
             Sprite sprite = LoadOrCreateSprite(EnemySpritePath, () => CreateCircleTexture(32));
-            
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            CreateEnemy(EnemyPrefabPath, sprite, Color.red, 3f, 3f, 5, false, null, false);
+            CreateEnemy(EnemyPrefabPath, sprite, Color.white, 3f, 3f, 5, false, null, false);
         }
 
         /// <summary>三角怪：橙色，会发射子弹</summary>
@@ -199,7 +42,7 @@ namespace SurvivorDemo
             Sprite sprite = LoadOrCreateSprite(TriangleSpritePath, () => CreateTriangleTexture(32));
             GameObject bulletPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyBulletPrefabPath);
             // 橙色，移动 2.5，maxHP 5，xp 25，挂 TriShooter
-            CreateEnemy(TriangleEnemyPrefabPath, sprite, new Color(1f, 0.55f, 0.2f), 2.5f, 5f, 10, true, bulletPrefab, false);
+            CreateEnemy(TriangleEnemyPrefabPath, sprite, Color.white, 2.5f, 5f, 10, true, bulletPrefab, false);
         }
 
         /// <summary>方块怪：紫色，移动慢、血厚（重装），会冲锋</summary>
@@ -208,14 +51,14 @@ namespace SurvivorDemo
         {
             Sprite sprite = LoadOrCreateSprite(SquareSpritePath, () => CreateSquareTexture(32));
             // 紫色，移动 1.5，maxHP 15，xp 50，BoxCollider2D，挂 ChargeAttacker
-            CreateEnemy(SquareEnemyPrefabPath, sprite, new Color(0.6f, 0.2f, 0.8f), 1.5f, 15f, 20, false, null, true);
+            CreateEnemy(SquareEnemyPrefabPath, sprite, Color.white, 1.5f, 15f, 20, false, null, true);
         }
 
         /// <summary>首领怪物：大圆、深红色、高血量、慢速、矩形伤害+弹幕技能</summary>
         [MenuItem("SurvivorDemo/Create Boss Prefab")]
         public static void CreateBossPrefab()
         {
-            Sprite sprite = LoadOrCreateSprite(BossSpritePath, () => CreateCircleTexture(64), 32f);
+            Sprite sprite = LoadOrCreateSprite(BossSpritePath, () => CreateCircleTexture(64), 341f);
             GameObject bulletPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyBulletPrefabPath);
 
             GameObject boss = new GameObject("BossEnemy");
@@ -223,7 +66,7 @@ namespace SurvivorDemo
 
             SpriteRenderer sr = boss.AddComponent<SpriteRenderer>();
             sr.sprite = sprite;
-            sr.color = new Color(0.5f, 0f, 0f); // 深红
+            sr.color = Color.white; // sprite 自带颜色
             sr.sortingOrder = 5;
 
             Rigidbody2D rb = boss.AddComponent<Rigidbody2D>();
@@ -231,369 +74,15 @@ namespace SurvivorDemo
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
 
             CircleCollider2D col = boss.AddComponent<CircleCollider2D>();
-            col.radius = 1f;
+            col.radius = 1.2f;
             col.isTrigger = true;
 
             EnemyMovement movement = boss.AddComponent<EnemyMovement>();
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             movement.moveSpeed = 1.5f;
             movement.contactDamage = 20f;
 
             EnemyHealth health = boss.AddComponent<EnemyHealth>();
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             health.maxHP = 100f;
             health.xpDropAmount = 80;
@@ -603,8 +92,9 @@ namespace SurvivorDemo
                 health.xpOrbPrefab = xpOrbPrefab;
 
             EnemyHealthBar healthBar = boss.AddComponent<EnemyHealthBar>();
-            healthBar.barWidth = 2f;
-            healthBar.barOffsetY = 1.3f;
+            healthBar.barWidth = 2.5f;
+            healthBar.barOffsetY = 1.8f;
+            healthBar.barHeight = 0.2f;
 
             BossMonster bossMonster = boss.AddComponent<BossMonster>();
             if (bulletPrefab != null)
@@ -631,7 +121,7 @@ namespace SurvivorDemo
 
             SpriteRenderer sr = bullet.AddComponent<SpriteRenderer>();
             sr.sprite = sprite;
-            sr.color = new Color(0.6f, 0f, 0f); // 深红色
+            sr.color = Color.white; // sprite 自带颜色
             sr.sortingOrder = 2;
 
             Rigidbody2D rb = bullet.AddComponent<Rigidbody2D>();
@@ -682,17 +172,18 @@ namespace SurvivorDemo
             rb.gravityScale = 0f;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
 
-            // 碰撞体：方块用 Box(size 1×1)，其余用 Circle(radius 0.5)，都是触发器
+            // 碰撞体：方块用 Box(1.0×1.0)，其余用 Circle(0.4)，都是触发器
+            // 值与 Sprite 视觉大小匹配（普通怪 1.0、方块怪 1.2，碰撞约为视觉 80%）
             if (useBoxCollider)
             {
                 BoxCollider2D box = enemy.AddComponent<BoxCollider2D>();
-                box.size = new Vector2(1f, 1f);
+                box.size = new Vector2(1.0f, 1.0f);
                 box.isTrigger = true;
             }
             else
             {
                 CircleCollider2D circle = enemy.AddComponent<CircleCollider2D>();
-                circle.radius = 0.5f;
+                circle.radius = 0.4f;
                 circle.isTrigger = true;
             }
 
@@ -716,165 +207,19 @@ namespace SurvivorDemo
                 Debug.LogWarning("未找到 XPOrb.prefab，请先执行菜单：SurvivorDemo → Create XP Orb Prefab");
             }
 
-            // 头顶血条
-            enemy.AddComponent<EnemyHealthBar>();
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            // 头顶血条（宽度和偏移按 Sprite 视觉大小设置）
+            EnemyHealthBar healthBar = enemy.AddComponent<EnemyHealthBar>();
+            if (useBoxCollider)
+            {
+                healthBar.barWidth = 1.0f;
+                healthBar.barOffsetY = 0.7f;
+            }
+            else
+            {
+                healthBar.barWidth = 0.8f;
+                healthBar.barOffsetY = 0.6f;
+            }
+            healthBar.barHeight = 0.12f;
 
             // 三角怪：额外挂射击组件
             if (withShooter)

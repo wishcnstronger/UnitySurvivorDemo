@@ -35,7 +35,13 @@ namespace SurvivorDemo
         private Color playerColor = Color.cyan;
 
         [SerializeField, Tooltip("玩家半径")]
-        private float playerRadius = 0.5f;
+        private float playerRadius = 0.6f;
+
+        [SerializeField, Tooltip("玩家整体缩放（视觉与碰撞一起等比放大）")]
+        private float playerScale = 1.0f;
+
+        [SerializeField, Tooltip("玩家子弹整体缩放（试玩反馈：1.5 过大，回调到 1.2）")]
+        private float bulletScale = 1.2f;
 
         [Header("摄像机")]
         [SerializeField, Tooltip("摄像机背景色")]
@@ -87,217 +93,6 @@ namespace SurvivorDemo
             sr.sprite = CreateSquareSprite(groundColor);
             sr.drawMode = SpriteDrawMode.Simple;
             ground.transform.localScale = new Vector3(groundSize.x, groundSize.y, 1f);
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             ground.transform.position = Vector3.zero;
             // Layer 设置等 TagManager 正确加载后再用，Phase1 不需要碰撞层
@@ -338,7 +133,6 @@ namespace SurvivorDemo
             }
         }
 
-
         /// <summary>创建玩家并返回其 GameObject（Awake 用返回值注入初始构筑选择）</summary>
         private GameObject CreatePlayer()
         {
@@ -357,49 +151,17 @@ namespace SurvivorDemo
 
             // 渲染
             SpriteRenderer sr = player.AddComponent<SpriteRenderer>();
-            sr.sprite = CreateCircleSprite(playerColor, 32);
+            Sprite heroSprite = Resources.Load<Sprite>("Sprites/SurvivorHero");
+            if (heroSprite != null)
+            {
+                sr.sprite = heroSprite;
+                sr.color = Color.white;
+            }
+            else
+            {
+                sr.sprite = CreateCircleSprite(playerColor, 32);
+            }
             sr.sortingOrder = 1;
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             // 组件
             player.AddComponent<PlayerStats>();
@@ -408,7 +170,6 @@ namespace SurvivorDemo
             PlayerMovement movement = player.AddComponent<PlayerMovement>();
             movement.boundX = playAreaSize.x / 2f;
             movement.boundY = playAreaSize.y / 2f;
-
 
             // 武器组件，并自动创建子弹模板给它用
             PlayerWeapon weapon = player.AddComponent<PlayerWeapon>();
@@ -432,6 +193,9 @@ namespace SurvivorDemo
             // 初始位置
             player.transform.position = Vector3.zero;
 
+            // 整体缩放：视觉与碰撞体一起等比放大
+            player.transform.localScale = new Vector3(playerScale, playerScale, 1f);
+
             // 缓存玩家引用，供摄像机跟随使用
             playerTransform = player.transform;
 
@@ -451,9 +215,21 @@ namespace SurvivorDemo
             GameObject bullet = new GameObject("BulletTemplate");
             bullet.SetActive(false); // 隐藏，只在被发射时激活
 
-            // 渲染：黄色圆形
+            // 整体缩放：子弹视觉与碰撞体一起等比放大
+            bullet.transform.localScale = new Vector3(bulletScale, bulletScale, 1f);
+
+            // 渲染：加载玩家子弹 sprite，回退到黄色圆形
             SpriteRenderer sr = bullet.AddComponent<SpriteRenderer>();
-            sr.sprite = CreateCircleSprite(Color.yellow, 16);
+            Sprite bulletSprite = Resources.Load<Sprite>("Sprites/PlayerBulletSprite");
+            if (bulletSprite != null)
+            {
+                sr.sprite = bulletSprite;
+                sr.color = Color.white;
+            }
+            else
+            {
+                sr.sprite = CreateCircleSprite(Color.yellow, 16);
+            }
             sr.sortingOrder = 2;
 
             // 子弹飞行组件

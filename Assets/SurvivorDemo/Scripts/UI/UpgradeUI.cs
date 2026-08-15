@@ -9,7 +9,7 @@ namespace SurvivorDemo
     /// <summary>
     /// 升级界面（三选一卡片）。
     /// 运行时程序化生成 UGUI，不依赖手动搭建的 Canvas。
-    /// 卡片背景色 = 稀有度颜色，文字两行 = 类型·稀有度 / 描述。
+    /// 卡片：深色底 + 稀有度色顶部色条 + 稀有度色边框 + 白色文字 + 悬停放大。
     /// </summary>
     public class UpgradeUI : MonoBehaviour
     {
@@ -19,8 +19,11 @@ namespace SurvivorDemo
         /// <summary>3 张卡片按钮</summary>
         private List<Button> cardButtons = new List<Button>();
 
-        /// <summary>3 张卡片的文字</summary>
-        private List<Text> cardTexts = new List<Text>();
+        /// <summary>3 张卡片的标题文字</summary>
+        private List<Text> cardTitleTexts = new List<Text>();
+
+        /// <summary>3 张卡片的描述文字</summary>
+        private List<Text> cardDescTexts = new List<Text>();
 
         /// <summary>当前选择回调（由 LevelUpManager 传入）</summary>
         private Action<UpgradeConfig.UpgradeDefinition> onSelect;
@@ -43,24 +46,40 @@ namespace SurvivorDemo
             // 逐张更新卡片内容
             for (int i = 0; i < cardButtons.Count && i < choices.Count; i++)
             {
-                SetCard(cardButtons[i], cardTexts[i], choices[i]);
+                SetCard(cardButtons[i], cardTitleTexts[i], cardDescTexts[i], choices[i]);
             }
 
             panel.SetActive(true);
         }
 
         /// <summary>
-        /// 设置单张卡片：背景色 = 稀有度颜色，文字 = 标题 + 描述，绑定点击回调。
+        /// 设置单张卡片：稀有度色边框 + 顶部色条 + 标题/描述分行。
         /// </summary>
-        private void SetCard(Button button, Text text, UpgradeConfig.UpgradeDefinition def)
+        private void SetCard(Button button, Text titleText, Text descText, UpgradeConfig.UpgradeDefinition def)
         {
-            // 背景色 = 稀有度颜色
-            button.image.color = UpgradeConfig.GetRarityColor(def.rarity);
+            Color rarityColor = UpgradeConfig.GetRarityColor(def.rarity);
+            Color cardBg = new Color(0.1f, 0.1f, 0.15f, 0.95f);
 
-            // 文字两行：标题（类型·稀有度）+ 描述
-            string title = $"{UpgradeConfig.GetTypeName(def.type)}·{UpgradeConfig.GetRarityName(def.rarity)}";
-            string desc = UpgradeConfig.GetDescription(def.type, def.rarity);
-            text.text = title + "\n" + desc;
+            // 卡片背景：带稀有度色边框
+            button.image.sprite = UIDungeonTheme.CreateBorderSprite(rarityColor, cardBg, 64, 3);
+            button.image.type = Image.Type.Sliced;
+            button.image.color = Color.white;
+
+            // 更新顶部色条（稀有度色）
+            Transform strip = button.transform.Find("RarityStrip");
+            if (strip != null)
+            {
+                strip.GetComponent<Image>().color = rarityColor;
+            }
+
+            // 标题（类型名 + 稀有度）
+            string title = $"{UpgradeConfig.GetTypeName(def.type)}";
+            string rarity = UpgradeConfig.GetRarityName(def.rarity);
+            titleText.text = $"{title}\n<color=#{ColorUtility.ToHtmlStringRGBA(rarityColor)}>{rarity}</color>";
+            titleText.supportRichText = true;
+
+            // 描述
+            descText.text = UpgradeConfig.GetDescription(def.type, def.rarity);
 
             // 重新绑定点击（先清空，防止多次 Show 时回调叠加）
             button.onClick.RemoveAllListeners();
@@ -110,7 +129,20 @@ namespace SurvivorDemo
                 esObj.AddComponent<StandaloneInputModule>();
             }
 
-            // 3. 居中半透明面板
+            // 3. 全屏半透明遮罩
+            GameObject overlay = new GameObject("Overlay");
+            overlay.transform.SetParent(canvasObj.transform, false);
+
+            RectTransform overlayRect = overlay.AddComponent<RectTransform>();
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+
+            Image overlayImage = overlay.AddComponent<Image>();
+            overlayImage.color = new Color(0.02f, 0.02f, 0.04f, 0.8f);
+
+            // 4. 居中面板（深色底 + 金色边框）
             panel = new GameObject("LevelUpPanel");
             panel.transform.SetParent(canvasObj.transform, false);
 
@@ -122,12 +154,14 @@ namespace SurvivorDemo
             pRect.anchoredPosition = Vector2.zero;
 
             Image pImage = panel.AddComponent<Image>();
-            pImage.color = new Color(0f, 0f, 0f, 0.75f); // 半透明深色
+            pImage.sprite = UIDungeonTheme.CreateBorderSprite(UIDungeonTheme.GoldBorder, UIDungeonTheme.PanelBg, 64, 4);
+            pImage.type = Image.Type.Sliced;
+            pImage.color = Color.white;
 
-            // 4. 标题
+            // 5. 标题（金色 + 描边）
             CreateTitle(panel.transform);
 
-            // 5. 三张卡片
+            // 6. 三张卡片
             Font font = UIFont.Get();
             for (int i = 0; i < 3; i++)
             {
@@ -145,21 +179,22 @@ namespace SurvivorDemo
             tRect.anchorMin = new Vector2(0.5f, 1f);
             tRect.anchorMax = new Vector2(0.5f, 1f);
             tRect.pivot = new Vector2(0.5f, 1f);
-            tRect.anchoredPosition = new Vector2(0f, -40f);
-            tRect.sizeDelta = new Vector2(1000f, 80f);
+            tRect.anchoredPosition = new Vector2(0f, -30f);
+            tRect.sizeDelta = new Vector2(1000f, 70f);
 
             Text title = titleObj.AddComponent<Text>();
             title.text = "升级！选择一项强化";
             title.font = UIFont.Get();
-            title.fontSize = 60;
+            title.fontSize = 48;
             title.alignment = TextAnchor.MiddleCenter;
-            title.color = Color.white; // 深色面板上用白色标题，保证可读
+            title.color = UIDungeonTheme.GoldText;
+            UIDungeonTheme.AddOutline(title);
         }
 
-        /// <summary>创建一张卡片：按钮 + 两行文字</summary>
+        /// <summary>创建一张卡片：深色底+稀有度边框 + 顶部色条 + 标题 + 描述</summary>
         private void CreateCard(Transform parent, Font font, int index)
         {
-            // 卡片本体（Button + Image）
+            // 卡片本体（Button + Image，带边框 Sprite）
             GameObject cardObj = new GameObject($"Card{index}");
             cardObj.transform.SetParent(parent, false);
 
@@ -167,36 +202,80 @@ namespace SurvivorDemo
             cRect.anchorMin = new Vector2(0.5f, 0.5f);
             cRect.anchorMax = new Vector2(0.5f, 0.5f);
             cRect.pivot = new Vector2(0.5f, 0.5f);
-            cRect.sizeDelta = new Vector2(320f, 460f);
-            cRect.anchoredPosition = new Vector2((index - 1) * 360f, 0f);
+            cRect.sizeDelta = new Vector2(320f, 420f);
+            cRect.anchoredPosition = new Vector2((index - 1) * 360f, -30f);
 
             Image img = cardObj.AddComponent<Image>();
-            img.color = Color.white; // 初始白色，Show 时替换为稀有度色
+            img.sprite = UIDungeonTheme.CreateBorderSprite(UIDungeonTheme.GoldBorder, new Color(0.1f, 0.1f, 0.15f, 0.95f), 64, 3);
+            img.type = Image.Type.Sliced;
+            img.color = Color.white; // 初始，Show 时替换为稀有度色边框
 
             Button button = cardObj.AddComponent<Button>();
             button.targetGraphic = img;
 
-            // 卡片文字（两行）
-            GameObject textObj = new GameObject("CardText");
-            textObj.transform.SetParent(cardObj.transform, false);
+            // 悬停放大效果
+            UIDungeonTheme.AddHoverScale(cardObj, 1.05f);
 
-            RectTransform txtRect = textObj.AddComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero;
-            txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero;
-            txtRect.offsetMax = Vector2.zero;
+            // 顶部稀有度色条（高 10px）
+            GameObject strip = new GameObject("RarityStrip");
+            strip.transform.SetParent(cardObj.transform, false);
 
-            Text text = textObj.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = 36;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.black;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform stripRect = strip.AddComponent<RectTransform>();
+            stripRect.anchorMin = new Vector2(0f, 1f);
+            stripRect.anchorMax = new Vector2(1f, 1f);
+            stripRect.pivot = new Vector2(0.5f, 1f);
+            stripRect.anchoredPosition = new Vector2(0f, -6f);
+            stripRect.sizeDelta = new Vector2(-12f, 10f);
+
+            Image stripImage = strip.AddComponent<Image>();
+            stripImage.color = Color.white; // 初始，Show 时替换为稀有度色
+            stripImage.raycastTarget = false;
+
+            // 标题文字（类型名 + 稀有度，上方偏上）
+            GameObject titleObj = new GameObject("CardTitle");
+            titleObj.transform.SetParent(cardObj.transform, false);
+
+            RectTransform titleRect = titleObj.AddComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0f, 1f);
+            titleRect.anchorMax = new Vector2(1f, 1f);
+            titleRect.pivot = new Vector2(0.5f, 1f);
+            titleRect.anchoredPosition = new Vector2(0f, -50f);
+            titleRect.sizeDelta = new Vector2(-20f, 120f);
+
+            Text titleText = titleObj.AddComponent<Text>();
+            titleText.font = font;
+            titleText.fontSize = 30;
+            titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.color = Color.white;
+            titleText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            titleText.verticalOverflow = VerticalWrapMode.Overflow;
+            titleText.raycastTarget = false;
+            titleText.supportRichText = true;
+
+            // 描述文字（效果说明，下方偏下）
+            GameObject descObj = new GameObject("CardDesc");
+            descObj.transform.SetParent(cardObj.transform, false);
+
+            RectTransform descRect = descObj.AddComponent<RectTransform>();
+            descRect.anchorMin = new Vector2(0f, 0f);
+            descRect.anchorMax = new Vector2(1f, 0f);
+            descRect.pivot = new Vector2(0.5f, 0f);
+            descRect.anchoredPosition = new Vector2(0f, 30f);
+            descRect.sizeDelta = new Vector2(-20f, 80f);
+
+            Text descText = descObj.AddComponent<Text>();
+            descText.font = font;
+            descText.fontSize = 24;
+            descText.alignment = TextAnchor.MiddleCenter;
+            descText.color = UIDungeonTheme.StoneText;
+            descText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            descText.verticalOverflow = VerticalWrapMode.Overflow;
+            descText.raycastTarget = false;
 
             // 存引用
             cardButtons.Add(button);
-            cardTexts.Add(text);
+            cardTitleTexts.Add(titleText);
+            cardDescTexts.Add(descText);
         }
     }
 }

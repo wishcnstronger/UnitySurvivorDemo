@@ -131,7 +131,7 @@ namespace SurvivorDemo
                 float offset = (i - (bulletCount - 1) / 2f) * (bulletSpreadAngle / Mathf.Max(1, bulletCount - 1));
                 Vector2 dir = Rotate(baseDir, offset * Mathf.Deg2Rad);
 
-                Vector2 spawnPos = (Vector2)transform.position + dir * 1f;
+                Vector2 spawnPos = (Vector2)transform.position + dir * 1.6f;
                 GameObject bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
 
                 EnemyBullet eb = bullet.GetComponent<EnemyBullet>();

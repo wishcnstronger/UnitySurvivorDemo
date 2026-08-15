@@ -5,10 +5,9 @@ namespace SurvivorDemo
 {
     /// <summary>
     /// 玩家常驻 HUD（挂在 Player 上）。
-    /// 左上角：HP 血条+数值 → 等级 → 经验条+数值；右上角：存活时间。
+    /// 左上角：HP 血条（边框+延迟扣血白条+平滑变色）→ 等级徽章 → 经验条；右上角：存活时间。
     /// 每帧轮询 PlayerStats / GameStats 刷新（不用事件）。
     /// 全部用 anchor 定位（参考分辨率 1920×1080），不用世界坐标。
-    /// 血条/经验条填充：锚点 pivot 在左端，宽度按比例缩放，从右端收缩。
     /// </summary>
     public class PlayerHUD : MonoBehaviour
     {
@@ -25,10 +24,17 @@ namespace SurvivorDemo
         /// <summary>左上角容器相对屏幕左上角的偏移（像素）</summary>
         public Vector2 rootOffset = new Vector2(30f, -30f);
 
+        /// <summary>条边框厚度（像素，边框就是比填充大一圈的黑底）</summary>
+        public float borderWidth = 3f;
+
+        /// <summary>延迟扣血白条追进速率（指数衰减系数，越大追得越快，4 ≈ 0.4 秒内追完大半）</summary>
+        public float ghostLerpSpeed = 4f;
+
         /// <summary>玩家属性（每帧轮询）</summary>
         private PlayerStats stats;
 
         // HP
+        private RectTransform hpGhostRect;   // 延迟扣血白条（HP 填充下层）
         private RectTransform hpFillRect;
         private Image hpFillImage;
         private Text hpText;
@@ -42,6 +48,9 @@ namespace SurvivorDemo
 
         // 时间
         private Text timeText;
+
+        /// <summary>延迟扣血白条当前显示比例（受伤时白条停在原值慢慢追到真实血量）</summary>
+        private float ghostRatio = 1f;
 
         private void Awake()
         {
@@ -68,27 +77,32 @@ namespace SurvivorDemo
             // ---- HP 条 + 数值 ----
             float hpRatio = Mathf.Clamp01(stats.CurrentHP / stats.MaxHP);
 
+            // 延迟扣血白条：受伤时白条停留原值指数衰减追上；回血（治疗）时白条直接跟上
+            if (hpRatio < ghostRatio)
+                ghostRatio = Mathf.Max(hpRatio, Mathf.Lerp(ghostRatio, hpRatio, ghostLerpSpeed * Time.deltaTime));
+            else
+                ghostRatio = hpRatio;
+
+            if (hpGhostRect != null)
+                hpGhostRect.sizeDelta = new Vector2(barWidth * ghostRatio, barHeight);
+
             // 填充宽度 = 条宽 × 比例（左对齐，从右端收缩）
             if (hpFillRect != null)
                 hpFillRect.sizeDelta = new Vector2(barWidth * hpRatio, barHeight);
 
-            // 变色：>50% 绿 / >25% 黄 / 否则红
+            // 平滑变色：满血绿 → 半血黄 → 残血红（HSV 色相线性渐变，每帧向目标色过渡）
             if (hpFillImage != null)
             {
-                if (hpRatio > 0.5f)
-                    hpFillImage.color = Color.green;
-                else if (hpRatio > 0.25f)
-                    hpFillImage.color = Color.yellow;
-                else
-                    hpFillImage.color = Color.red;
+                Color target = Color.HSVToRGB(0.33f * hpRatio, 0.9f, 1f);
+                hpFillImage.color = Color.Lerp(hpFillImage.color, target, 10f * Time.deltaTime);
             }
 
             if (hpText != null)
                 hpText.text = $"{Mathf.RoundToInt(stats.CurrentHP)} / {Mathf.RoundToInt(stats.MaxHP)}";
 
-            // ---- 等级 ----
+            // ---- 等级徽章 ----
             if (levelText != null)
-                levelText.text = $"等级 {stats.Level}";
+                levelText.text = $"Lv.{stats.Level}";
 
             // ---- 经验条 + 数值（需求值随等级递增：10 → 15 → 20）----
             float xpRatio = Mathf.Clamp01(stats.CurrentXP / stats.XPToNextLevel);
@@ -107,7 +121,7 @@ namespace SurvivorDemo
             }
         }
 
-        /// <summary>程序化创建 HUD Canvas、血条、经验条、等级和时间文字</summary>
+        /// <summary>程序化创建 HUD Canvas、血条、经验条、等级徽章和时间文字</summary>
         private void CreateUI()
         {
             // 1. Canvas（Screen Space Overlay，sortingOrder 90：低于升级 100 / 结算 110 / 开始 120）
@@ -129,45 +143,60 @@ namespace SurvivorDemo
             rootRect.anchorMax = new Vector2(0f, 1f);
             rootRect.pivot = new Vector2(0f, 1f);
             rootRect.anchoredPosition = rootOffset;
-            rootRect.sizeDelta = new Vector2(360f, 200f);
+            rootRect.sizeDelta = new Vector2(400f, 240f);
 
             Font font = UIFont.Get();
 
-            // ---- HP 血条背景（黑 0.7，贴容器左上）----
-            RectTransform hpBg = CreateBarRect(rootRect, "HPBarBG", 0f, 0f, barWidth, barHeight);
-            Image hpBgImage = hpBg.gameObject.AddComponent<Image>();
-            hpBgImage.color = new Color(0f, 0f, 0f, 0.7f);
+            // ---- HP 血条：边框（大一圈的黑底）+ 白条（延迟扣血）+ 填充（变色）----
+            // 边框：barWidth+2*borderWidth 的黑底，填充缩在里面形成边框效果
+            RectTransform hpBorder = CreateBarRect(rootRect, "HPBarBorder", 0f, 0f, barWidth + borderWidth * 2f, barHeight + borderWidth * 2f);
+            Image hpBorderImage = hpBorder.gameObject.AddComponent<Image>();
+            hpBorderImage.color = UIDungeonTheme.StoneBorder;
 
-            // ---- HP 血条填充（同位置，宽度按比例，变色）----
-            hpFillRect = CreateBarRect(rootRect, "HPBarFill", 0f, 0f, barWidth, barHeight);
+            // 白条：在边框内部（左移 borderWidth），白色半透明，HP 填充下层
+            hpGhostRect = CreateBarRect(rootRect, "HPBarGhost", borderWidth, -borderWidth, barWidth, barHeight);
+            Image hpGhostImage = hpGhostRect.gameObject.AddComponent<Image>();
+            hpGhostImage.color = new Color(1f, 1f, 1f, 0.75f);
+
+            // 填充：最上层，平滑变色
+            hpFillRect = CreateBarRect(rootRect, "HPBarFill", borderWidth, -borderWidth, barWidth, barHeight);
             hpFillImage = hpFillRect.gameObject.AddComponent<Image>();
             hpFillImage.color = Color.green;
 
-            // ---- HP 数值（与血条重叠，右对齐偏右；容器宽 360 / 条宽 320，右缘取 -46 对齐条右端）----
+            // ---- HP 数值（与血条重叠，右对齐偏右）----
             hpText = CreateText(rootRect, "HPValueText", font, 26, Color.white, TextAnchor.MiddleRight,
-                new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(-46f, -18f), new Vector2(140f, 36f));
+                new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(-46f, -borderWidth - barHeight / 2f), new Vector2(140f, 36f));
+            AddOutline(hpText);
 
-            // ---- 等级（血条下方）----
-            levelText = CreateText(rootRect, "LevelText", font, 28, Color.white, TextAnchor.MiddleLeft,
-                new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -48f), new Vector2(160f, 40f));
+            // ---- 等级徽章：金色圆形底 + Lv.N 白字（血条下方）----
+            RectTransform badge = CreateBadgeRect(rootRect, "LevelBadge", new Vector2(25f, -46f - 23f), 46f);
+            Image badgeImage = badge.gameObject.AddComponent<Image>();
+            badgeImage.sprite = CreateCircleSprite();
+            badgeImage.color = new Color(1f, 0.78f, 0.25f); // 亮金
 
-            // ---- 经验条背景（等级下方，黑 0.7）----
-            RectTransform xpBg = CreateBarRect(rootRect, "XPBarBG", 0f, -96f, barWidth, xpBarHeight);
-            Image xpBgImage = xpBg.gameObject.AddComponent<Image>();
-            xpBgImage.color = new Color(0f, 0f, 0f, 0.7f);
+            levelText = CreateText(rootRect, "LevelText", font, 24, Color.white, TextAnchor.MiddleCenter,
+                new Vector2(0f, 1f), new Vector2(0.5f, 0.5f), new Vector2(25f, -46f - 23f), new Vector2(46f, 46f));
+            AddOutline(levelText);
 
-            // ---- 经验条填充（青色，同背景位置）----
-            xpFillRect = CreateBarRect(rootRect, "XPBarFill", 0f, -96f, barWidth, xpBarHeight);
+            // ---- 经验条：边框 + 青色填充（徽章下方）----
+            float xpTop = -46f - 46f - 8f; // 徽章底部再留 8px
+            RectTransform xpBorder = CreateBarRect(rootRect, "XPBarBorder", 0f, xpTop, barWidth + borderWidth * 2f, xpBarHeight + borderWidth * 2f);
+            Image xpBorderImage = xpBorder.gameObject.AddComponent<Image>();
+            xpBorderImage.color = UIDungeonTheme.StoneBorder;
+
+            xpFillRect = CreateBarRect(rootRect, "XPBarFill", borderWidth, xpTop - borderWidth, barWidth, xpBarHeight);
             Image xpFillImage = xpFillRect.gameObject.AddComponent<Image>();
-            xpFillImage.color = Color.cyan;
+            xpFillImage.color = UIDungeonTheme.DungeonBlue;
 
-            // ---- 经验数值（经验条内右侧，右缘同样对齐条右端）----
+            // ---- 经验数值（经验条内右侧，右缘对齐条右端）----
             xpText = CreateText(rootRect, "XPValueText", font, 20, Color.white, TextAnchor.MiddleRight,
-                new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(-46f, -105f), new Vector2(140f, xpBarHeight));
+                new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(-46f, xpTop - borderWidth - xpBarHeight / 2f), new Vector2(140f, xpBarHeight));
+            AddOutline(xpText);
 
             // ---- 右上角时间（独立于左上容器，锚定屏幕右上角）----
-            timeText = CreateText(canvasObj.transform, "TimeText", font, 32, Color.white, TextAnchor.MiddleRight,
+            timeText = CreateText(canvasObj.transform, "TimeText", font, 32, UIDungeonTheme.WarmWhite, TextAnchor.MiddleRight,
                 new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-30f, -30f), new Vector2(200f, 60f));
+            AddOutline(timeText);
 
             timeText.text = "0:00";
         }
@@ -187,6 +216,21 @@ namespace SurvivorDemo
             rect.pivot = new Vector2(0f, 1f);
             rect.anchoredPosition = new Vector2(x, y);
             rect.sizeDelta = new Vector2(w, h);
+            return rect;
+        }
+
+        /// <summary>创建中心锚定的圆形徽章底（pivot 居中，方便文字叠上去）</summary>
+        private static RectTransform CreateBadgeRect(RectTransform parent, string name, Vector2 center, float diameter)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+
+            RectTransform rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = center;
+            rect.sizeDelta = new Vector2(diameter, diameter);
             return rect;
         }
 
@@ -210,6 +254,33 @@ namespace SurvivorDemo
             text.alignment = align;
             text.color = color;
             return text;
+        }
+
+        /// <summary>给文字加黑色描边，保证在战场背景下可读</summary>
+        private static void AddOutline(Text text)
+        {
+            Outline outline = text.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            outline.effectDistance = new Vector2(2f, -2f);
+        }
+
+        /// <summary>程序化创建白色圆形贴图（UI Image 用它显示徽章圆形底）</summary>
+        private static Sprite CreateCircleSprite()
+        {
+            const int size = 64;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float center = size / 2f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
+                    tex.SetPixel(x, y, dist <= center - 1f ? Color.white : Color.clear);
+                }
+            }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
         }
     }
 }
