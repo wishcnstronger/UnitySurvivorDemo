@@ -34,7 +34,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -169,8 +169,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be28b14d436753a4a84c87eb2c19844f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 2.5
-  contactDamage: 10
+  moveSpeed: 2.2
+  contactDamage: 5
   isCharging: 0
 --- !u!114 &5122136195235350893
 MonoBehaviour:
@@ -184,8 +184,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca04eb0c7b6698643acac119fa4c3003, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHP: 5
-  xpDropAmount: 10
+  maxHP: 3
+  xpDropAmount: 8
   xpOrbPrefab: {fileID: 6132089579247954804, guid: 5da18e1bc6da23f4d89c748e9986af0b,
     type: 3}
 --- !u!114 &3718657481221704896
@@ -202,7 +202,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   barWidth: 0.8
   barHeight: 0.12
-  barOffsetY: 0.6
+  barOffsetY: 0.90000004
 --- !u!114 &987972677086903504
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -215,9 +215,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e9553276a37de54e972248d0b173d5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  attackInterval: 2
-  attackRange: 6
-  damage: 5
+  attackInterval: 2.5
+  attackRange: 7
+  damage: 4
   bulletSpeed: 6
   bulletPrefab: {fileID: 6370179316192040432, guid: 73b9b11dca4ea034b97b0bde5eec5095,
     type: 3}

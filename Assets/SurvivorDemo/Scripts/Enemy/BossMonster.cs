@@ -27,6 +27,10 @@ namespace SurvivorDemo
         public float bulletDamage = 15f;
         public float bulletSpeed = 5f;
 
+        [Header("火焰特效预制体（可选，矩形技能激活时生成）")]
+        public GameObject fireVfxPrefab;
+        public float fireVfxLifetime = 1.5f;
+
         [Header("子弹预制体")]
         public GameObject bulletPrefab;
 
@@ -97,6 +101,14 @@ namespace SurvivorDemo
 
             // 激活阶段：深红色
             sr.color = new Color(0.6f, 0f, 0f, 0.7f);
+
+            // 火焰特效：在矩形区域中心生成火焰粒子
+            if (fireVfxPrefab != null)
+            {
+                GameObject fireVfx = Instantiate(fireVfxPrefab, center, Quaternion.identity);
+                fireVfx.transform.localScale = new Vector3(rectWidth * 0.5f, rectHeight * 0.8f, 1f);
+                Destroy(fireVfx, fireVfxLifetime);
+            }
 
             if (player != null)
             {

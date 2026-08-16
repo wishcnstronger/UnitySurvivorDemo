@@ -4,10 +4,10 @@ using UnityEngine;
 namespace SurvivorDemo
 {
     /// <summary>
-    /// 敌人管理器。
-    /// 按权重（50%圆形/30%三角/20%方块）在可移动区域内生成敌人。
-    /// 生成间隔随时间递减，生成数量随时间递增，敌人血量和伤害随分钟递增。
-    /// 整数分钟时生成首领怪物（高额血量与伤害，矩形伤害+弹幕技能）。
+    /// 敌人管理器（VS 风格：大量低血怪物蜂拥而至）。
+    /// 生成节奏快、圆形怪占绝对主力、远程/冲锋怪稀有。
+    /// 怪物 HP/伤害/速度三项随时间缩放（HP 指数、伤害线性、速度缓增有上限）。
+    /// 整数分钟时生成首领怪物。
     /// </summary>
     public class EnemySpawner : MonoBehaviour
     {
@@ -18,10 +18,13 @@ namespace SurvivorDemo
         public GameObject bossPrefab;
 
         /// <summary>基础生成间隔（秒）</summary>
-        public float spawnInterval = 2.5f;
+        public float spawnInterval = 1.2f;
 
         /// <summary>最小生成间隔（秒），随时间递减到此值</summary>
-        public float minSpawnInterval = 0.8f;
+        public float minSpawnInterval = 0.15f;
+
+        /// <summary>最大同屏怪物数（防止帧率崩溃）</summary>
+        public int maxEnemies = 150;
 
         /// <summary>可移动区域半宽（由 GameSetup 注入，与玩家移动区域相同）</summary>
         [HideInInspector]
@@ -31,8 +34,8 @@ namespace SurvivorDemo
         [HideInInspector]
         public float boundY = 18f;
 
-        /// <summary>三种敌人权重：圆形50 / 三角30 / 方块20</summary>
-        private static readonly int[] spawnWeights = { 50, 30, 20 };
+        /// <summary>同屏怪物计数器（静态，EnemyHealth.Die 递减，GameSetup.ResetGame 重置）</summary>
+        public static int ActiveEnemyCount;
 
         private Transform player;
         private float timer;
@@ -88,32 +91,48 @@ namespace SurvivorDemo
             }
         }
 
-        /// <summary>生成间隔随时间递减：每秒减少 0.005s，最小 0.8s</summary>
+        /// <summary>生成间隔随时间递减：每秒减少 0.02s，最小 0.15s</summary>
         private float GetCurrentSpawnInterval()
         {
-            return Mathf.Max(minSpawnInterval, spawnInterval - elapsedTime * 0.005f);
+            return Mathf.Max(minSpawnInterval, spawnInterval - elapsedTime * 0.02f);
         }
 
-        /// <summary>生成数量随时间递增：每 30 秒 +1，最多 4 个</summary>
+        /// <summary>生成数量随时间递增：每 15 秒 +1，最多 12 个</summary>
         private int GetCurrentSpawnCount()
         {
-            return Mathf.Min(4, 1 + Mathf.FloorToInt(elapsedTime / 30f));
+            return Mathf.Min(12, 2 + Mathf.FloorToInt(elapsedTime / 15f));
         }
 
-        /// <summary>按权重随机选敌人类型并生成，位置限定在可移动区域内</summary>
+        /// <summary>随时间动态调整敌人类型权重</summary>
+        private int[] GetSpawnWeights(float minute)
+        {
+            if (minute < 3f)  return new[] { 75, 12, 13 };
+            if (minute < 6f)  return new[] { 68, 17, 15 };
+            if (minute < 10f) return new[] { 60, 22, 18 };
+            return new[] { 55, 25, 20 };
+        }
+
+        /// <summary>按动态权重随机选敌人类型并生成，位置限定在可移动区域内</summary>
         private void SpawnEnemy()
         {
+            // 同屏上限检查
+            if (ActiveEnemyCount >= maxEnemies)
+                return;
+
+            float minute = elapsedTime / 60f;
+            int[] weights = GetSpawnWeights(minute);
+
             int total = 0;
-            for (int i = 0; i < spawnWeights.Length && i < enemyPrefabs.Count; i++)
-                total += spawnWeights[i];
+            for (int i = 0; i < weights.Length && i < enemyPrefabs.Count; i++)
+                total += weights[i];
 
             int roll = Random.Range(0, total);
             int cumulative = 0;
             int selectedIndex = 0;
 
-            for (int i = 0; i < spawnWeights.Length && i < enemyPrefabs.Count; i++)
+            for (int i = 0; i < weights.Length && i < enemyPrefabs.Count; i++)
             {
-                cumulative += spawnWeights[i];
+                cumulative += weights[i];
                 if (roll < cumulative)
                 {
                     selectedIndex = i;
@@ -131,29 +150,34 @@ namespace SurvivorDemo
             spawnPos.y = Mathf.Clamp(spawnPos.y, -boundY, boundY);
 
             GameObject enemy = Instantiate(enemyPrefabs[selectedIndex], spawnPos, Quaternion.identity);
+            ActiveEnemyCount++;
 
-            // 血量和伤害随分钟缩放：每分钟 ×1.5（改低，避免前期就被碾压）
-            int minute = Mathf.FloorToInt(elapsedTime / 60f);
-            float hpMultiplier = 1f + minute * 0.5f;
-            float dmgMultiplier = 1f + minute * 0.5f;
+            // 三项随时间缩放：HP 指数、伤害线性、速度缓增有上限
+            int min = Mathf.FloorToInt(minute);
+            float hpMult = Mathf.Pow(1.15f, min);
+            float dmgMult = 1f + min * 0.3f;
+            float spdMult = Mathf.Min(2.5f, 1f + min * 0.08f);
 
             EnemyHealth health = enemy.GetComponent<EnemyHealth>();
             if (health != null)
-                health.ScaleMaxHP(hpMultiplier);
+                health.ScaleMaxHP(hpMult);
 
             EnemyMovement movement = enemy.GetComponent<EnemyMovement>();
             if (movement != null)
-                movement.contactDamage *= dmgMultiplier;
+            {
+                movement.contactDamage *= dmgMult;
+                movement.ScaleSpeed(spdMult);
+            }
 
             // 三角怪子弹伤害也同步缩放
             TriShooter shooter = enemy.GetComponent<TriShooter>();
             if (shooter != null)
-                shooter.damage *= dmgMultiplier;
+                shooter.damage *= dmgMult;
 
             // 方块怪冲锋伤害也同步缩放
             ChargeAttacker charger = enemy.GetComponent<ChargeAttacker>();
             if (charger != null)
-                charger.chargeDamage *= dmgMultiplier;
+                charger.chargeDamage *= dmgMult;
         }
 
         /// <summary>在可移动区域边缘生成首领，血量与技能伤害按分钟缩放</summary>
@@ -168,11 +192,12 @@ namespace SurvivorDemo
             spawnPos.y = Mathf.Clamp(spawnPos.y, -boundY, boundY);
 
             GameObject boss = Instantiate(bossPrefab, spawnPos, Quaternion.identity);
+            ActiveEnemyCount++;
 
-            // 首领血量：每分钟 ×2（改低，避免 3 分钟 Boss 血条离谱）
+            // 首领血量：每分钟 ×0.7（温和增长，避免后期血条离谱）
             EnemyHealth health = boss.GetComponent<EnemyHealth>();
             if (health != null)
-                health.ScaleMaxHP(1f + minute * 1.0f);
+                health.ScaleMaxHP(1f + minute * 0.7f);
 
             // 首领接触伤害同步缩放
             EnemyMovement movement = boss.GetComponent<EnemyMovement>();

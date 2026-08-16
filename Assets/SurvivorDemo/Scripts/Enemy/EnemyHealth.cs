@@ -140,6 +140,7 @@ namespace SurvivorDemo
             // 先置死亡标记，再执行掉落与销毁
             isDead = true;
             GameStats.kills++; // 计入全局击杀数（结算界面用，重开时归零）
+            EnemySpawner.ActiveEnemyCount--; // 递减同屏怪物计数
 
             // 掉落经验宝珠，并把经验值设置到宝珠上
             if (xpOrbPrefab != null)

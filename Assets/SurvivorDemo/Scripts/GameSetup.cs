@@ -38,7 +38,7 @@ namespace SurvivorDemo
         private float playerRadius = 0.6f;
 
         [SerializeField, Tooltip("玩家整体缩放（视觉与碰撞一起等比放大）")]
-        private float playerScale = 1.0f;
+        private float playerScale = 1.5f;
 
         [SerializeField, Tooltip("玩家子弹整体缩放（试玩反馈：1.5 过大，回调到 1.2）")]
         private float bulletScale = 1.2f;
@@ -70,7 +70,7 @@ namespace SurvivorDemo
             // 复位全局状态（static 变量在重开/重进播放模式下不会自动清空，必须显式归零）
             GameStats.kills = 0;
             GameStats.playTime = 0f;
-
+            EnemySpawner.ActiveEnemyCount = 0;
             CreateGround();
             CreatePlayArea();
             SetupEnemySpawnerBounds();
@@ -251,6 +251,7 @@ namespace SurvivorDemo
             Time.timeScale = 1f;
             GameStats.kills = 0;
             GameStats.playTime = 0f;
+            EnemySpawner.ActiveEnemyCount = 0;
 
             // 2. 销毁开始界面（只在首次启动出现过，重开直接开打，不再展示）
             if (startScreen != null)

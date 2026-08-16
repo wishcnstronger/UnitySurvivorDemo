@@ -33,7 +33,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -168,8 +168,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be28b14d436753a4a84c87eb2c19844f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 3
-  contactDamage: 10
+  moveSpeed: 2.5
+  contactDamage: 6
   isCharging: 0
 --- !u!114 &4953819498475981571
 MonoBehaviour:
@@ -183,8 +183,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca04eb0c7b6698643acac119fa4c3003, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHP: 3
-  xpDropAmount: 5
+  maxHP: 2
+  xpDropAmount: 3
   xpOrbPrefab: {fileID: 6132089579247954804, guid: 5da18e1bc6da23f4d89c748e9986af0b,
     type: 3}
 --- !u!114 &2502097735647347893
@@ -201,4 +201,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   barWidth: 0.8
   barHeight: 0.12
-  barOffsetY: 0.6
+  barOffsetY: 0.90000004

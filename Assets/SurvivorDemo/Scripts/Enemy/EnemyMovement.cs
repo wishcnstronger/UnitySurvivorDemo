@@ -21,6 +21,12 @@ namespace SurvivorDemo
         /// <summary>玩家 Transform 引用</summary>
         private Transform player;
 
+        /// <summary>由 EnemySpawner 调用，按时间倍率缩放移动速度</summary>
+        public void ScaleSpeed(float multiplier)
+        {
+            moveSpeed *= multiplier;
+        }
+
         /// <summary>游戏开始时查找玩家</summary>
         private void Start()
         {

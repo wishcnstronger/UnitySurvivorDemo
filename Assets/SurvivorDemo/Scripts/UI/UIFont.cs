@@ -14,17 +14,21 @@ namespace SurvivorDemo
 
         /// <summary>
         /// 获取全局字体。
-        /// 优先级：微软雅黑（系统字体） → Unity 内置 LegacyRuntime → 内置 Arial。
+        /// 优先级：项目内 ZPix 像素字体 → 微软雅黑 → Unity 内置 LegacyRuntime → 内置 Arial。
         /// </summary>
         public static Font Get()
         {
             if (cachedFont != null)
                 return cachedFont;
 
-            // 1. 系统微软雅黑：更美观且完整支持中文
-            cachedFont = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", 36);
+            // 1. 项目内 ZPix 像素字体（Resources/Fonts/ZPix）
+            cachedFont = Resources.Load<Font>("Fonts/ZPix");
 
-            // 2. 兜底：Unity 内置字体（新老版本兼容）
+            // 2. 兜底：系统微软雅黑
+            if (cachedFont == null)
+                cachedFont = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", 16);
+
+            // 3. 兜底：Unity 内置字体（新老版本兼容）
             if (cachedFont == null)
                 cachedFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (cachedFont == null)
