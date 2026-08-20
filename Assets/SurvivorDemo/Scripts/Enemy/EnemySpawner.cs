@@ -44,6 +44,8 @@ namespace SurvivorDemo
 
         /// <summary>缓存的诅咒加速系数（每帧从 PlayerStats 读取）</summary>
         private float cachedCurseBoost;
+        private float cachedCurseSpeedBoost;
+        private float cachedCurseDamageBoost;
 
         private void Start()
         {
@@ -76,6 +78,8 @@ namespace SurvivorDemo
             // 刷新诅咒加速系数
             PlayerStats ps = player != null ? player.GetComponent<PlayerStats>() : null;
             cachedCurseBoost = ps != null ? ps.CurseSpawnBoost : 0f;
+            cachedCurseSpeedBoost = ps != null ? ps.CurseEnemySpeedBoost : 0f;
+            cachedCurseDamageBoost = ps != null ? ps.CurseEnemyDamageBoost : 0f;
 
             // 整数分钟生成首领
             int currentMinute = Mathf.FloorToInt(elapsedTime / 60f);
@@ -165,8 +169,8 @@ namespace SurvivorDemo
             // 三项随时间缩放：HP 指数、伤害线性、速度缓增有上限
             int min = Mathf.FloorToInt(minute);
             float hpMult = Mathf.Pow(1.15f, min);
-            float dmgMult = 1f + min * 0.3f;
-            float spdMult = Mathf.Min(2.5f, 1f + min * 0.08f);
+            float dmgMult = (1f + min * 0.3f) * (1f + cachedCurseDamageBoost);
+            float spdMult = Mathf.Min(2.5f, 1f + min * 0.08f) * (1f + cachedCurseSpeedBoost);
 
             EnemyHealth health = enemy.GetComponent<EnemyHealth>();
             if (health != null)

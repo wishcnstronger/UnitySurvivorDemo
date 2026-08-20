@@ -129,6 +129,10 @@ namespace SurvivorDemo
             {
                 ApplyCoreUpgrade(type);
             }
+            else if (data.category == UpgradeConfig.UpgradeCategory.Curse)
+            {
+                ApplyCurseUpgrade(type, nextLevel);
+            }
             else
             {
                 ApplyMechanicUpgrade(type, nextLevel);
@@ -180,6 +184,10 @@ namespace SurvivorDemo
             {
                 case UpgradeConfig.UpgradeType.DeathLight:
                     if (weapon != null) weapon.UnlockDeathLight();
+                    break;
+                case UpgradeConfig.UpgradeType.DeathDescend:
+                    if (GetComponent<DeathDescendController>() == null)
+                        gameObject.AddComponent<DeathDescendController>();
                     break;
             }
         }
@@ -264,6 +272,66 @@ namespace SurvivorDemo
                 {
                     if (weapon != null)
                         weapon.SetBeamRadius(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.BeamRefraction:
+                {
+                    if (weapon != null)
+                        weapon.SetBeamRefraction((int)UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+
+                // === 灵魂强化 ===
+                case UpgradeConfig.UpgradeType.SoulMultiply:
+                {
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl != null) ctrl.SetMultiplyLevel(level);
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.SoulExplosion:
+                {
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl != null) ctrl.SetExplosionLevel(level);
+                    break;
+                }
+            }
+        }
+
+        /// <summary>诅咒强力升级分发（跨流派，高收益高代价）</summary>
+        private void ApplyCurseUpgrade(UpgradeConfig.UpgradeType type, int level)
+        {
+            switch (type)
+            {
+                case UpgradeConfig.UpgradeType.CurseDamage:
+                {
+                    // 全局伤害百分比加成
+                    if (weapon != null)
+                        weapon.AddDamagePercent(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.CurseBeam:
+                {
+                    // 光束数量额外 +level，光束伤害 +level*20%
+                    if (weapon != null)
+                    {
+                        weapon.SetBeamCount(weapon.beamCount + (int)UpgradeConfig.GetValue(type, level));
+                        weapon.AddDamagePercent(UpgradeConfig.GetValue(type, level) * 0.2f);
+                    }
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.CurseSoul:
+                {
+                    // 灵魂生成概率倍率：提升 harvestLevel 等效
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl != null)
+                        ctrl.SetMultiplyLevel(ctrl.GetMultiplyLevel() + (int)UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.CurseSurvival:
+                {
+                    // 最大生命 +50*level，护甲 +5*level
+                    stats.AddMaxHP(UpgradeConfig.GetValue(type, level));
+                    stats.AddArmor(level * 5);
                     break;
                 }
             }

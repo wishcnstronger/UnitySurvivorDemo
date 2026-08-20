@@ -65,6 +65,9 @@ namespace SurvivorDemo
         /// <summary>光束数量（默认 1，可被升级强化）</summary>
         public int beamCount = 1;
 
+        /// <summary>光束最大折射次数（默认 0，可被升级强化）</summary>
+        public int beamRefraction = 0;
+
         /// <summary>光束基础起始色：青白核心</summary>
         private static readonly Color BeamStartColor = new Color(0.6f, 1f, 0.95f, 0.9f);
 
@@ -278,6 +281,10 @@ namespace SurvivorDemo
             beamMaxDisplayTime = Mathf.Min(0.2f, fireInterval * 0.5f);
             beamDisplayTimer = beamMaxDisplayTime;
 
+            // 光束折射：主光束击杀敌人后，有概率向附近存活敌人折射
+            if (beamRefraction > 0)
+                ProcessRefraction(enemies);
+
             AudioManager.Instance?.PlaySFX("hit", 0.15f);
         }
 
@@ -293,6 +300,115 @@ namespace SurvivorDemo
             t = Mathf.Clamp01(t);
             Vector2 closest = a + ab * t;
             return Vector2.Distance(p, closest);
+        }
+
+        /// <summary>光束折射：从被击杀敌人位置向附近存活敌人折射</summary>
+        private void ProcessRefraction(EnemyMovement[] allEnemies)
+        {
+            int remaining = beamRefraction;
+            var pendingPositions = new List<Vector3>();
+
+            // 收集被主光束击杀的敌人位置
+            foreach (EnemyMovement enemy in allEnemies)
+            {
+                EnemyHealth eh = enemy.GetComponent<EnemyHealth>();
+                if (eh != null && eh.IsDead)
+                    pendingPositions.Add(enemy.transform.position);
+            }
+
+            var flashed = new HashSet<Transform>();
+
+            while (remaining > 0 && pendingPositions.Count > 0)
+            {
+                var nextPositions = new List<Vector3>();
+
+                foreach (Vector3 pos in pendingPositions)
+                {
+                    if (remaining <= 0)
+                        break;
+
+                    // 50% 概率折射
+                    if (Random.value > 0.5f)
+                        continue;
+
+                    // 从死亡位置搜索半径内最近的存活敌人
+                    Transform target = FindNearestLivingEnemyFrom(pos, searchRadius * 0.5f);
+                    if (target == null)
+                        continue;
+
+                    // 造成伤害
+                    bool isCrit = Random.value < critChance;
+                    float dmg = isCrit ? damage * critMultiplier : damage;
+                    EnemyHealth eh = target.GetComponent<EnemyHealth>();
+                    if (eh == null)
+                        continue;
+
+                    eh.ReceiveDamage(dmg, isCrit, gameObject);
+                    if (flashed.Add(target))
+                        StartCoroutine(FlashHit(target));
+
+                    // 折射光束视觉
+                    StartCoroutine(ShowRefractionBeam(pos, target.position));
+
+                    remaining--;
+
+                    // 目标也死亡 → 继续链式折射
+                    if (eh.IsDead)
+                        nextPositions.Add(target.position);
+                }
+
+                pendingPositions = nextPositions;
+            }
+        }
+
+        /// <summary>从指定位置搜索半径内最近的存活敌人</summary>
+        private Transform FindNearestLivingEnemyFrom(Vector2 from, float radius)
+        {
+            EnemyMovement[] enemies = EnemyMovement.ActiveEnemies.ToArray();
+            Transform nearest = null;
+            float minDist = radius;
+
+            foreach (EnemyMovement enemy in enemies)
+            {
+                EnemyHealth eh = enemy.GetComponent<EnemyHealth>();
+                if (eh != null && eh.IsDead)
+                    continue;
+
+                float dist = Vector2.Distance(from, enemy.transform.position);
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                    nearest = enemy.transform;
+                }
+            }
+
+            return nearest;
+        }
+
+        /// <summary>折射光束视觉：临时 LineRenderer 从起点到终点，0.15s 淡出后销毁</summary>
+        private IEnumerator ShowRefractionBeam(Vector3 from, Vector3 to)
+        {
+            GameObject beamObj = new GameObject("RefractionBeam");
+            LineRenderer lr = beamObj.AddComponent<LineRenderer>();
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.sortingOrder = 14;
+            lr.startWidth = beamRadius * 1.5f;
+            lr.endWidth = beamRadius * 0.8f;
+            lr.SetPosition(0, from);
+            lr.SetPosition(1, to);
+
+            float duration = 0.15f;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float fade = 1f - elapsed / duration;
+                lr.startColor = new Color(BeamStartColor.r, BeamStartColor.g, BeamStartColor.b, BeamStartColor.a * fade);
+                lr.endColor = new Color(BeamEndColor.r, BeamEndColor.g, BeamEndColor.b, BeamEndColor.a * fade);
+                yield return null;
+            }
+
+            Destroy(beamObj);
         }
 
         /// <summary>命中闪光协程：SpriteRenderer 短暂变白后恢复</summary>
@@ -324,6 +440,18 @@ namespace SurvivorDemo
         public void SetBeamRadius(float radius)
         {
             beamRadius = Mathf.Max(0.1f, radius);
+        }
+
+        /// <summary>设置光束最大折射次数（由 LevelUpManager 调用）</summary>
+        public void SetBeamRefraction(int count)
+        {
+            beamRefraction = Mathf.Max(0, count);
+        }
+
+        /// <summary>伤害百分比加成（percent > 0 表示增伤，如 0.5 = +50%）</summary>
+        public void AddDamagePercent(float percent)
+        {
+            damage *= (1f + percent);
         }
 
         /// <summary>

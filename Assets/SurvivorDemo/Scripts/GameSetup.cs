@@ -187,6 +187,9 @@ namespace SurvivorDemo
             // 游玩计时：每帧累加 GameStats.playTime（HUD 右上角时间与结算存活时间用）
             player.AddComponent<GameTimer>();
 
+            // 诅咒视觉反馈 + 终焉状态
+            player.AddComponent<CurseEffectController>();
+
             GameOverUI gameOverUI = player.AddComponent<GameOverUI>();
             gameOverUI.gameSetup = this; // 注入重开回调（点击按钮时调用 ResetGame）
 

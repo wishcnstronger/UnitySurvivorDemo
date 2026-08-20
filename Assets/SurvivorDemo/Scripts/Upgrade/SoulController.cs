@@ -22,6 +22,8 @@ namespace SurvivorDemo
         private int chainLevel;      // SoulChain 等级
         private int swarmLevel;      // SoulSwarm 等级
         private bool curseActive;    // SoulCurse 是否激活
+        private int multiplyLevel;   // SoulMultiply 等级
+        private int explosionLevel;  // SoulExplosion 等级
 
         // ======== 派生属性 ========
         private float SpawnChance => 0.15f + 0.05f * harvestLevel;
@@ -29,6 +31,8 @@ namespace SurvivorDemo
         private float DamageMultiplier => 0.5f + 0.3f * powerLevel;
         private int ChainCount => 3 + 2 * chainLevel;
         private bool SoulPenetrate => curseActive;
+        private int SoulMultiplyCount => 1 + multiplyLevel;
+        private float ExplosionRadius => explosionLevel > 0 ? 1.5f + 0.5f * explosionLevel : 0f;
 
         /// <summary>玩家武器（读取 damage 作为灵魂基础伤害）</summary>
         private PlayerWeapon weapon;
@@ -84,9 +88,15 @@ namespace SurvivorDemo
         {
             if (harvestLevel <= 0) return;
             if (Random.value > SpawnChance) return;
-            if (activeSouls.Count >= MaxSouls) return;
 
-            SpawnSoul(position);
+            int count = SoulMultiplyCount;
+            for (int i = 0; i < count; i++)
+            {
+                if (activeSouls.Count >= MaxSouls) break;
+                // 多灵魂时在生成位置周围散开
+                Vector3 offset = count > 1 ? (Vector3)(Random.insideUnitCircle * 0.5f) : Vector3.zero;
+                SpawnSoul(position + offset);
+            }
         }
 
         private void SpawnSoul(Vector3 position)
@@ -105,7 +115,8 @@ namespace SurvivorDemo
                 chainCount: ChainCount,
                 penetrate: SoulPenetrate,
                 curseActive: curseActive,
-                ownerStats: GetComponent<PlayerStats>()
+                ownerStats: GetComponent<PlayerStats>(),
+                explosionRadius: ExplosionRadius
             );
         }
 
@@ -120,5 +131,9 @@ namespace SurvivorDemo
         {
             curseActive = true;
         }
+
+        public void SetMultiplyLevel(int level) { multiplyLevel = level; }
+        public int GetMultiplyLevel() { return multiplyLevel; }
+        public void SetExplosionLevel(int level) { explosionLevel = level; }
     }
 }

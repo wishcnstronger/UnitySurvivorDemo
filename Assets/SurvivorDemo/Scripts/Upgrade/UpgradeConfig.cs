@@ -45,11 +45,27 @@ namespace SurvivorDemo
             DeathLight = 18,
             // === 光束强化 ===
             BeamCount = 19,
-            BeamRadius = 20
+            BeamRadius = 20,
+            BeamRefraction = 21,
+            // === 灵魂强化 ===
+            SoulMultiply = 22,
+            SoulExplosion = 23,
+            // === 核心机制 ===
+            DeathDescend = 24,
+            // === 诅咒强力升级 ===
+            CurseDamage = 25,
+            CurseBeam = 26,
+            CurseSoul = 27,
+            CurseSurvival = 28,
+            // === 诅咒阈值解锁升级 ===
+            ForbiddenKnowledge = 29,
+            GraspOfDeath = 30,
+            Calamity = 31,
+            DefyFate = 32
         }
 
         /// <summary>升级类型总数（pickCounts 数组长度用）</summary>
-        public static int TypeCount => (int)UpgradeType.BeamRadius + 1;
+        public static int TypeCount => (int)UpgradeType.DefyFate + 1;
 
         /// <summary>一张升级卡片的内容：类型（无稀有度）</summary>
         public struct UpgradeDefinition
@@ -68,6 +84,7 @@ namespace SurvivorDemo
             public UpgradeCategory category;
             public UpgradeType prerequisite;
             public int prerequisiteLevel;
+            public int curseThreshold;
         }
 
         /// <summary>获取某升级类型的元数据</summary>
@@ -105,6 +122,26 @@ namespace SurvivorDemo
                 // --- 光束强化 ---
                 case UpgradeType.BeamCount:    return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.DeathLight, prerequisiteLevel = 1 };
                 case UpgradeType.BeamRadius:   return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.DeathLight, prerequisiteLevel = 1 };
+                case UpgradeType.BeamRefraction: return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.DeathLight, prerequisiteLevel = 1 };
+
+                // --- 灵魂强化 ---
+                case UpgradeType.SoulMultiply:   return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 1 };
+                case UpgradeType.SoulExplosion:  return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 1 };
+
+                // --- 核心机制（续） ---
+                case UpgradeType.DeathDescend:  return new UpgradeLevelData { maxLevel = 1, curseCost = 0, category = UpgradeCategory.Core };
+
+                // --- 诅咒强力升级（跨流派，高收益高代价） ---
+                case UpgradeType.CurseDamage:   return new UpgradeLevelData { maxLevel = 3, curseCost = 15, category = UpgradeCategory.Curse };
+                case UpgradeType.CurseBeam:    return new UpgradeLevelData { maxLevel = 3, curseCost = 20, category = UpgradeCategory.Curse, prerequisite = UpgradeType.DeathLight, prerequisiteLevel = 1 };
+                case UpgradeType.CurseSoul:    return new UpgradeLevelData { maxLevel = 3, curseCost = 20, category = UpgradeCategory.Curse, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 1 };
+                case UpgradeType.CurseSurvival: return new UpgradeLevelData { maxLevel = 3, curseCost = 10, category = UpgradeCategory.Curse };
+
+                // --- 诅咒阈值解锁升级（需达到对应诅咒值才出现） ---
+                case UpgradeType.ForbiddenKnowledge: return new UpgradeLevelData { maxLevel = 3, curseCost = 10, category = UpgradeCategory.Curse, curseThreshold = 20 };
+                case UpgradeType.GraspOfDeath:    return new UpgradeLevelData { maxLevel = 3, curseCost = 10, category = UpgradeCategory.Curse, curseThreshold = 40 };
+                case UpgradeType.Calamity:       return new UpgradeLevelData { maxLevel = 3, curseCost = 15, category = UpgradeCategory.Curse, curseThreshold = 60 };
+                case UpgradeType.DefyFate:       return new UpgradeLevelData { maxLevel = 1, curseCost = 20, category = UpgradeCategory.Curse, curseThreshold = 80 };
 
                 default: return new UpgradeLevelData { maxLevel = 1, curseCost = 0, category = UpgradeCategory.Stat };
             }
@@ -169,6 +206,26 @@ namespace SurvivorDemo
                 // --- 光束强化 ---
                 case UpgradeType.BeamCount:    return 1 + level;                     // 光束总数（base 1 + level）
                 case UpgradeType.BeamRadius:   return 0.5f + 0.3f * level;            // 光束命中半径
+                case UpgradeType.BeamRefraction: return 1 + level;                     // 最大折射次数
+
+                // --- 灵魂强化 ---
+                case UpgradeType.SoulMultiply:   return 1 + level;                     // 生成数量倍率
+                case UpgradeType.SoulExplosion:  return 1.5f + 0.5f * level;            // 爆炸半径
+
+                // --- 核心机制（续） ---
+                case UpgradeType.DeathDescend:  return 1f;                             // 标记
+
+                // --- 诅咒强力升级 ---
+                case UpgradeType.CurseDamage:   return 0.5f * level;                   // 伤害百分比加成（Lv1=+50%, Lv2=+100%, Lv3=+150%）
+                case UpgradeType.CurseBeam:    return level;                          // 光束数量额外加成（Lv1=+1, Lv2=+2, Lv3=+3）
+                case UpgradeType.CurseSoul:    return level;                          // 灵魂生成概率倍率等级
+                case UpgradeType.CurseSurvival: return 50f * level;                   // 生命加成（Lv1=+50, Lv2=+100, Lv3=+150）
+
+                // --- 诅咒阈值解锁升级 ---
+                case UpgradeType.ForbiddenKnowledge: return 1f * level;                 // 经验倍率加成（Lv1=+100%, Lv2=+200%, Lv3=+300%）
+                case UpgradeType.GraspOfDeath:    return 0.15f * level;                 // 吸血率加成（Lv1=+15%, Lv2=+30%, Lv3=+45%）
+                case UpgradeType.Calamity:       return 0.8f * level;                  // 伤害百分比加成（Lv1=+80%, Lv2=+160%, Lv3=+240%）
+                case UpgradeType.DefyFate:       return 1f;                            // 标记
 
                 default: return 0f;
             }
@@ -202,6 +259,18 @@ namespace SurvivorDemo
                 case UpgradeType.DeathLight:   return "死神之光";
                 case UpgradeType.BeamCount:    return "光束增殖";
                 case UpgradeType.BeamRadius:   return "光束扩散";
+                case UpgradeType.BeamRefraction: return "光束折射";
+                case UpgradeType.SoulMultiply:   return "灵魂增殖";
+                case UpgradeType.SoulExplosion:  return "灵魂爆裂";
+                case UpgradeType.DeathDescend:  return "死神降临";
+                case UpgradeType.CurseDamage:   return "死神契约";
+                case UpgradeType.CurseBeam:    return "万光归一";
+                case UpgradeType.CurseSoul:    return "亡魂盛宴";
+                case UpgradeType.CurseSurvival: return "死者馈赠";
+                case UpgradeType.ForbiddenKnowledge: return "禁忌知识";
+                case UpgradeType.GraspOfDeath:    return "死亡之握";
+                case UpgradeType.Calamity:       return "灾厄";
+                case UpgradeType.DefyFate:       return "逆命";
                 default: return "";
             }
         }
@@ -239,6 +308,18 @@ namespace SurvivorDemo
                 case UpgradeType.DeathLight:   return "将普通攻击转化为死亡光束";
                 case UpgradeType.BeamCount:    return $"光束数量 → {(int)value}";
                 case UpgradeType.BeamRadius:   return $"光束半径 → {value:0.#}";
+                case UpgradeType.BeamRefraction: return $"击杀后可折射 {(int)value} 次\n50% 概率向附近敌人折射";
+                case UpgradeType.SoulMultiply:   return $"击杀生成灵魂数量 ×{(int)value}";
+                case UpgradeType.SoulExplosion:  return $"灵魂消散时爆炸\n半径 {value:0.#} 造成范围伤害";
+                case UpgradeType.DeathDescend:  return "每 30 秒释放死亡波\n清除普通敌人，Boss 受大量伤害";
+                case UpgradeType.CurseDamage:   return $"全局伤害 +{value * 100f:0}%\n诅咒 +{GetLevelData(type).curseCost}";
+                case UpgradeType.CurseBeam:    return $"光束数量 +{(int)value}\n光束伤害 +{value * 20f:0}%\n诅咒 +{GetLevelData(type).curseCost}";
+                case UpgradeType.CurseSoul:    return $"灵魂生成概率 ×{(int)value + 1}\n诅咒 +{GetLevelData(type).curseCost}";
+                case UpgradeType.CurseSurvival: return $"最大生命 +{(int)value}\n护甲 +{nextLevel * 5}\n诅咒 +{GetLevelData(type).curseCost}";
+                case UpgradeType.ForbiddenKnowledge: return $"经验获取 +{value * 100f:0}%\n需诅咒 ≥{GetLevelData(type).curseThreshold}\n诅咒 +{GetLevelData(type).curseCost}";
+                case UpgradeType.GraspOfDeath:    return $"吸血率 +{value * 100f:0}%\n需诅咒 ≥{GetLevelData(type).curseThreshold}\n诅咒 +{GetLevelData(type).curseCost}";
+                case UpgradeType.Calamity:       return $"全局伤害 +{value * 100f:0}%\n需诅咒 ≥{GetLevelData(type).curseThreshold}\n诅咒 +{GetLevelData(type).curseCost}";
+                case UpgradeType.DefyFate:       return $"免疫终焉状态\n全属性大幅提升\n需诅咒 ≥{GetLevelData(type).curseThreshold}\n诅咒 +{GetLevelData(type).curseCost}";
 
                 default: return "";
             }
@@ -261,14 +342,20 @@ namespace SurvivorDemo
             UpgradeType.SoulSwarm, UpgradeType.SoulCurse,
             UpgradeType.ScytheUnlock, UpgradeType.ScytheRange, UpgradeType.ScytheDamage,
             UpgradeType.ScytheSpeed, UpgradeType.Lifesteal,
-            UpgradeType.BeamCount, UpgradeType.BeamRadius
+            UpgradeType.BeamCount, UpgradeType.BeamRadius,
+            UpgradeType.BeamRefraction,
+            UpgradeType.SoulMultiply, UpgradeType.SoulExplosion
         };
 
         /// <summary>核心机制池（当前为空，后续添加死神之光/亡魂契约/死神降临）</summary>
-        private static readonly UpgradeType[] corePool = { UpgradeType.DeathLight };
+        private static readonly UpgradeType[] corePool = { UpgradeType.DeathLight, UpgradeType.DeathDescend };
 
         /// <summary>诅咒池（当前为空，后续添加跨流派诅咒升级）</summary>
-        private static readonly UpgradeType[] cursePool = { };
+        private static readonly UpgradeType[] cursePool =
+        {
+            UpgradeType.CurseDamage, UpgradeType.CurseBeam,
+            UpgradeType.CurseSoul, UpgradeType.CurseSurvival
+        };
 
         /// <summary>
         /// 四池随机抽取。

@@ -43,7 +43,7 @@ namespace SurvivorDemo
         private float xpRate = 1f;
 
         [Header("诅咒")]
-        [Tooltip("诅咒值（每点 -1% 最大生命，+5% 敌人生成速度）")]
+        [Tooltip("诅咒值（阶段式 Debuff：20+ 生成加速，60+ 敌人加速，80+ 敌人增伤）")]
         public int curseValue = 0;
 
         [Header("吸血")]
@@ -59,8 +59,8 @@ namespace SurvivorDemo
         private float currentHP;
 
         public float MoveSpeed => moveSpeed;
-        /// <summary>实际最大生命（受诅咒影响）：maxHP × (1 - 诅咒×0.01)</summary>
-        public float MaxHP => maxHP * (1f - curseValue * 0.01f);
+        /// <summary>实际最大生命（诅咒不再影响 MaxHP，由阶段式 Debuff 替代）</summary>
+        public float MaxHP => maxHP;
         public float CurrentHP => currentHP;
         public float Armor => armor;
         public float MagnetRange => magnetRange;
@@ -68,8 +68,41 @@ namespace SurvivorDemo
         public float XPToNextLevel => xpToNextLevel;
         public int Level => level;
         public float XPRate => xpRate;
-        /// <summary>诅咒加速生成系数（0=无加速，0.5=+50%速度）</summary>
-        public float CurseSpawnBoost => curseValue * 0.05f;
+        /// <summary>诅咒阶段：生成速度加速系数（0=无加速，0.1=+10%等）</summary>
+        public float CurseSpawnBoost
+        {
+            get
+            {
+                if (curseValue >= 80) return 0.4f;
+                if (curseValue >= 60) return 0.3f;
+                if (curseValue >= 40) return 0.2f;
+                if (curseValue >= 20) return 0.1f;
+                return 0f;
+            }
+        }
+
+        /// <summary>诅咒阶段：敌人移速加速系数（0=无加速，0.1=+10%）</summary>
+        public float CurseEnemySpeedBoost
+        {
+            get
+            {
+                if (curseValue >= 60) return 0.1f;
+                return 0f;
+            }
+        }
+
+        /// <summary>诅咒阶段：敌人伤害加成系数（0=无加成，0.2=+20%）</summary>
+        public float CurseEnemyDamageBoost
+        {
+            get
+            {
+                if (curseValue >= 80) return 0.2f;
+                return 0f;
+            }
+        }
+
+        /// <summary>是否进入终焉状态（诅咒≥100）</summary>
+        public bool IsCurseFinal => curseValue >= 100;
 
         private void Awake()
         {

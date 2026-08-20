@@ -25,6 +25,9 @@ namespace SurvivorDemo
         /// <summary>是否已死亡（防止同帧被多颗子弹命中时重复掉落经验宝珠）</summary>
         private bool isDead;
 
+        /// <summary>外部只读访问死亡状态（光束折射用）</summary>
+        public bool IsDead => isDead;
+
         /// <summary>血条引用（同一 GameObject 上的 EnemyHealthBar）</summary>
         private EnemyHealthBar healthBar;
 

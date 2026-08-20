@@ -27,6 +27,9 @@ namespace SurvivorDemo
         /// <summary>是否激活诅咒（每次命中扣玩家 1 HP）</summary>
         private bool curseActive;
 
+        /// <summary>爆炸半径（0 = 不爆炸，>0 = 消散时范围伤害）</summary>
+        private float explosionRadius;
+
         /// <summary>伤害来源（Player，吸血用）</summary>
         private GameObject owner;
 
@@ -52,7 +55,7 @@ namespace SurvivorDemo
 
         /// <summary>初始化灵魂参数</summary>
         public void Initialize(GameObject owner, float damage, int chainCount,
-            bool penetrate, bool curseActive, PlayerStats ownerStats)
+            bool penetrate, bool curseActive, PlayerStats ownerStats, float explosionRadius = 0f)
         {
             this.owner = owner;
             this.damage = damage;
@@ -60,6 +63,7 @@ namespace SurvivorDemo
             this.penetrate = penetrate;
             this.curseActive = curseActive;
             this.ownerStats = ownerStats;
+            this.explosionRadius = explosionRadius;
 
             // 诅咒代价：生成时扣 1 HP
             if (curseActive && ownerStats != null)
@@ -154,7 +158,28 @@ namespace SurvivorDemo
 
         private void OnDestroy()
         {
+            if (destroyed)
+                return;
             destroyed = true;
+
+            // 灵魂爆裂：消散时对范围内敌人造成伤害
+            if (explosionRadius > 0f)
+            {
+                var enemies = EnemyMovement.ActiveEnemies;
+                foreach (var enemy in enemies)
+                {
+                    float dist = Vector2.Distance(transform.position, enemy.transform.position);
+                    if (dist <= explosionRadius)
+                    {
+                        EnemyHealth eh = enemy.GetComponent<EnemyHealth>();
+                        if (eh != null)
+                            eh.ReceiveDamage(damage, false, owner);
+                    }
+                }
+
+                // 爆炸视觉
+                CombatVFX.Instance?.SpawnHitRing(transform.position, new Color(0.5f, 0.7f, 1f, 0.8f));
+            }
         }
     }
 }
