@@ -42,6 +42,9 @@ namespace SurvivorDemo
         private float elapsedTime;
         private int lastBossMinute;
 
+        /// <summary>缓存的诅咒加速系数（每帧从 PlayerStats 读取）</summary>
+        private float cachedCurseBoost;
+
         private void Start()
         {
             GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
@@ -70,6 +73,10 @@ namespace SurvivorDemo
 
             elapsedTime += Time.deltaTime;
 
+            // 刷新诅咒加速系数
+            PlayerStats ps = player != null ? player.GetComponent<PlayerStats>() : null;
+            cachedCurseBoost = ps != null ? ps.CurseSpawnBoost : 0f;
+
             // 整数分钟生成首领
             int currentMinute = Mathf.FloorToInt(elapsedTime / 60f);
             if (currentMinute > lastBossMinute && bossPrefab != null)
@@ -91,10 +98,13 @@ namespace SurvivorDemo
             }
         }
 
-        /// <summary>生成间隔随时间递减：每秒减少 0.02s，最小 0.15s</summary>
+        /// <summary>生成间隔随时间递减：每秒减少 0.02s，最小 0.15s，诅咒值额外加速</summary>
         private float GetCurrentSpawnInterval()
         {
-            return Mathf.Max(minSpawnInterval, spawnInterval - elapsedTime * 0.02f);
+            float baseInterval = Mathf.Max(minSpawnInterval, spawnInterval - elapsedTime * 0.02f);
+            // 诅咒值加速生成：每点诅咒 +5% 速度（间隔 ×(1 - curse×0.05)）
+            float curseMult = 1f - cachedCurseBoost;
+            return baseInterval * curseMult;
         }
 
         /// <summary>生成数量随时间递增：每 15 秒 +1，最多 12 个</summary>

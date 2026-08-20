@@ -1,4 +1,4 @@
-using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -6,267 +6,337 @@ namespace SurvivorDemo
 {
     /// <summary>
     /// 升级数据表（静态配置类）。
-    /// 所有升级相关的数值集中在这里，策划调数值只需改这个文件。
+    /// 移除稀有度系统，改为等级递增。
+    /// 分为属性池（8种）和机制池（10种），按时间动态调整权重。
+    /// 机制分灵魂流（死神收割灵魂）和收割流（镰刀近战+吸血）。
     /// </summary>
     public static class UpgradeConfig
     {
-        /// <summary>升级类型</summary>
-        public enum UpgradeType { FireRate, BulletCount, Penetration, Damage, MoveSpeed, MaxHP, Armor, MagnetRange, Range, XPBoost, Crit }
+        // ======== 枚举 ========
 
-        /// <summary>升级类型总数（PlayerStats 的 pickCounts 数组长度用）</summary>
-        public static int TypeCount => (int)UpgradeType.Crit + 1;
+        /// <summary>升级分类</summary>
+        public enum UpgradeCategory { Stat, Mechanic, Core, Curse }
 
-        /// <summary>稀有度（白→金→红，红为特殊卡）</summary>
-        public enum Rarity { White, Green, Blue, Purple, Gold, Red }
+        /// <summary>升级类型（8 属性 + 10 机制）</summary>
+        public enum UpgradeType
+        {
+            // === 属性升级（可重复选，效果随等级递增） ===
+            FireRate = 0,
+            Damage = 1,
+            MoveSpeed = 2,
+            MaxHP = 3,
+            Armor = 4,
+            MagnetRange = 5,
+            XPBoost = 6,
+            Crit = 7,
+            // === 灵魂流机制 ===
+            SoulHarvest = 8,
+            SoulPower = 9,
+            SoulChain = 10,
+            SoulSwarm = 11,
+            SoulCurse = 12,
+            // === 收割流机制 ===
+            ScytheUnlock = 13,
+            ScytheRange = 14,
+            ScytheDamage = 15,
+            ScytheSpeed = 16,
+            Lifesteal = 17,
+            // === 核心机制 ===
+            DeathLight = 18,
+            // === 光束强化 ===
+            BeamCount = 19,
+            BeamRadius = 20
+        }
 
-        /// <summary>一张升级卡片的内容：类型 + 稀有度</summary>
+        /// <summary>升级类型总数（pickCounts 数组长度用）</summary>
+        public static int TypeCount => (int)UpgradeType.BeamRadius + 1;
+
+        /// <summary>一张升级卡片的内容：类型（无稀有度）</summary>
         public struct UpgradeDefinition
         {
             public UpgradeType type;
-            public Rarity rarity;
+            public UpgradeDefinition(UpgradeType t) { type = t; }
+        }
 
-            public UpgradeDefinition(UpgradeType t, Rarity r)
+        // ======== 升级元数据 ========
+
+        /// <summary>升级等级数据</summary>
+        public struct UpgradeLevelData
+        {
+            public int maxLevel;
+            public int curseCost;
+            public UpgradeCategory category;
+            public UpgradeType prerequisite;
+            public int prerequisiteLevel;
+        }
+
+        /// <summary>获取某升级类型的元数据</summary>
+        public static UpgradeLevelData GetLevelData(UpgradeType type)
+        {
+            switch (type)
             {
-                type = t;
-                rarity = r;
+                // --- 属性升级（无前置，无诅咒） ---
+                case UpgradeType.FireRate:    return new UpgradeLevelData { maxLevel = 99, curseCost = 0, category = UpgradeCategory.Stat };
+                case UpgradeType.Damage:      return new UpgradeLevelData { maxLevel = 99, curseCost = 0, category = UpgradeCategory.Stat };
+                case UpgradeType.MoveSpeed:   return new UpgradeLevelData { maxLevel = 20, curseCost = 0, category = UpgradeCategory.Stat };
+                case UpgradeType.MaxHP:       return new UpgradeLevelData { maxLevel = 99, curseCost = 0, category = UpgradeCategory.Stat };
+                case UpgradeType.Armor:       return new UpgradeLevelData { maxLevel = 30, curseCost = 0, category = UpgradeCategory.Stat };
+                case UpgradeType.MagnetRange:  return new UpgradeLevelData { maxLevel = 20, curseCost = 0, category = UpgradeCategory.Stat };
+                case UpgradeType.XPBoost:     return new UpgradeLevelData { maxLevel = 20, curseCost = 0, category = UpgradeCategory.Stat };
+                case UpgradeType.Crit:        return new UpgradeLevelData { maxLevel = 99, curseCost = 0, category = UpgradeCategory.Stat };
+
+                // --- 灵魂流机制 ---
+                case UpgradeType.SoulHarvest:  return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic };
+                case UpgradeType.SoulPower:    return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 1 };
+                case UpgradeType.SoulChain:    return new UpgradeLevelData { maxLevel = 5, curseCost = 2, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 3 };
+                case UpgradeType.SoulSwarm:    return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 1 };
+                case UpgradeType.SoulCurse:    return new UpgradeLevelData { maxLevel = 1, curseCost = 3, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 2 };
+
+                // --- 收割流机制 ---
+                case UpgradeType.ScytheUnlock:  return new UpgradeLevelData { maxLevel = 1, curseCost = 0, category = UpgradeCategory.Mechanic };
+                case UpgradeType.ScytheRange:   return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.ScytheUnlock, prerequisiteLevel = 1 };
+                case UpgradeType.ScytheDamage:   return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.ScytheUnlock, prerequisiteLevel = 1 };
+                case UpgradeType.ScytheSpeed:   return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.ScytheUnlock, prerequisiteLevel = 1 };
+                case UpgradeType.Lifesteal:     return new UpgradeLevelData { maxLevel = 5, curseCost = 1, category = UpgradeCategory.Mechanic };
+
+                // --- 核心机制 ---
+                case UpgradeType.DeathLight:   return new UpgradeLevelData { maxLevel = 1, curseCost = 0, category = UpgradeCategory.Core };
+
+                // --- 光束强化 ---
+                case UpgradeType.BeamCount:    return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.DeathLight, prerequisiteLevel = 1 };
+                case UpgradeType.BeamRadius:   return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.DeathLight, prerequisiteLevel = 1 };
+
+                default: return new UpgradeLevelData { maxLevel = 1, curseCost = 0, category = UpgradeCategory.Stat };
             }
         }
 
-        // ======== 稀有度配置 ========
-
-        /// <summary>稀有度出现权重（白→金，红卡在 RollChoice 中单独处理）</summary>
-        private static readonly int[] rarityWeights = { 35, 25, 18, 12, 10 };
-
-        /// <summary>稀有度颜色（白 / 绿 / 蓝 / 紫 / 金 / 红）</summary>
-        private static readonly Color[] rarityColors =
+        /// <summary>获取某类型的分类（优先看 GetLevelData，再按池归属判定）</summary>
+        public static UpgradeCategory GetCategory(UpgradeType type)
         {
-            new Color(1f, 1f, 1f),          // 白 #FFFFFF
-            new Color(0f, 1f, 0.5f),        // 绿 #00FF7F
-            new Color(0.3f, 0.65f, 1f),     // 蓝 #4CA6FF
-            new Color(0.69f, 0.3f, 1f),     // 紫 #B04CFF
-            new Color(1f, 0.84f, 0f),       // 金 #FFD700
-            new Color(1f, 0.2f, 0.2f)       // 红 #FF3333
-        };
+            var data = GetLevelData(type);
+            // Core 和 Curse 需要在 GetLevelData 中显式设置 category
+            // 当前所有已有升级的 category 是 Stat 或 Mechanic，不受影响
+            return data.category;
+        }
 
-        /// <summary>稀有度中文名</summary>
-        private static readonly string[] rarityNames = { "白", "绿", "蓝", "紫", "金", "红" };
-
-        // ======== 数值表（每种类型 × 5 种稀有度，金卡概率 10% 下期望略微提高） ========
-
-        /// <summary>攻速提升：攻速倍率（>1 表示更快），换算到攻击间隔时取倒数</summary>
-        private static readonly float[] fireRateValues = { 1.08f, 1.15f, 1.22f, 1.35f, 1.55f };
-
-        /// <summary>攻击力：加法，作用于每发子弹伤害</summary>
-        private static readonly int[] damageValues = { 1, 2, 3, 5, 8 };
-
-        /// <summary>移动速度：系数，作用于 moveSpeed（越大越快）</summary>
-        private static readonly float[] moveSpeedValues = { 1.05f, 1.08f, 1.11f, 1.15f, 1.20f };
-
-        /// <summary>最大生命值：加法，作用于 maxHP</summary>
-        private static readonly float[] maxHPValues = { 5f, 8f, 15f, 25f, 45f };
-
-        /// <summary>护甲：加法，固定减伤</summary>
-        private static readonly int[] armorValues = { 2, 3, 4, 6, 10 };
-
-        /// <summary>经验拾取范围：加法，作用于 magnetRange</summary>
-        private static readonly float[] magnetRangeValues = { 1f, 2f, 3f, 4f, 5f };
-
-        /// <summary>射程：乘法倍率，作用于子弹寿命（越大飞得越远）</summary>
-        private static readonly float[] rangeValues = { 1.2f, 1.35f, 1.5f, 1.7f, 2.0f };
-
-        /// <summary>经验加成：加法，作用于 xpRate（经验获取倍率）</summary>
-        private static readonly float[] xpBoostValues = { 0.25f, 0.35f, 0.5f, 0.7f, 1.0f };
-
-        /// <summary>暴击率：加法（小数），作用于 critChance</summary>
-        private static readonly float[] critValues = { 0.05f, 0.08f, 0.12f, 0.18f, 0.25f };
-
-        /// <summary>红卡固定值：子弹数量和穿透各 +1</summary>
-        private const int RedCardValue = 1;
-
-        // ======== 查询方法 ========
-
-        /// <summary>获取某张卡的加成数值</summary>
-        public static float GetValue(UpgradeDefinition def)
+        /// <summary>获取分类对应的色条颜色</summary>
+        public static Color GetCategoryColor(UpgradeCategory category)
         {
-            // 红卡（子弹数量/穿透）固定值
-            if (def.rarity == Rarity.Red)
-                return RedCardValue;
-
-            switch (def.type)
+            switch (category)
             {
-                case UpgradeType.FireRate: return fireRateValues[(int)def.rarity];
-                case UpgradeType.Damage: return damageValues[(int)def.rarity];
-                case UpgradeType.MoveSpeed: return moveSpeedValues[(int)def.rarity];
-                case UpgradeType.MaxHP: return maxHPValues[(int)def.rarity];
-                case UpgradeType.Armor: return armorValues[(int)def.rarity];
-                case UpgradeType.MagnetRange: return magnetRangeValues[(int)def.rarity];
-                case UpgradeType.Range: return rangeValues[(int)def.rarity];
-                case UpgradeType.XPBoost: return xpBoostValues[(int)def.rarity];
-                case UpgradeType.Crit: return critValues[(int)def.rarity];
-                // 子弹数量和穿透只有红卡，走到这里说明数据异常，返回 0
-                case UpgradeType.BulletCount: return 0;
-                case UpgradeType.Penetration: return 0;
+                case UpgradeCategory.Stat:      return new Color(0.95f, 0.72f, 0.15f);  // 金色
+                case UpgradeCategory.Mechanic:  return new Color(0.69f, 0.3f, 1f);     // 紫色
+                case UpgradeCategory.Core:      return new Color(0.3f, 0.65f, 1f);     // 蓝色
+                case UpgradeCategory.Curse:     return new Color(1f, 0.2f, 0.2f);     // 红色
+                default:                        return new Color(0.95f, 0.72f, 0.15f);
+            }
+        }
+
+        // ======== 等级数值公式 ========
+
+        /// <summary>按等级计算升级数值（level 从 1 开始，1 = 首次选择的效果）</summary>
+        public static float GetValue(UpgradeType type, int level)
+        {
+            switch (type)
+            {
+                // --- 属性升级 ---
+                case UpgradeType.FireRate:    return 1f + 0.08f * level;           // 攻速倍率
+                case UpgradeType.Damage:      return 1f + Mathf.Floor(level * 0.3f); // 伤害加法
+                case UpgradeType.MoveSpeed:   return 1f + 0.05f * level;           // 移速倍率
+                case UpgradeType.MaxHP:       return 5f + level * 2f;               // 生命加法
+                case UpgradeType.Armor:       return 1f + Mathf.Floor(level * 0.2f); // 护甲加法
+                case UpgradeType.MagnetRange:  return 0.5f + level * 0.1f;          // 磁铁加法
+                case UpgradeType.XPBoost:     return 0.1f + level * 0.02f;          // 经验加法
+                case UpgradeType.Crit:        return 0.03f + level * 0.005f;        // 暴击加法
+
+                // --- 灵魂流 ---
+                case UpgradeType.SoulHarvest:  return 0.15f + 0.05f * level;        // 生成概率
+                case UpgradeType.SoulPower:    return 0.5f + 0.3f * level;          // 伤害倍率
+                case UpgradeType.SoulChain:    return 3 + 2 * level;                 // 连锁次数
+                case UpgradeType.SoulSwarm:    return 3 + 3 * level;                // 上限
+                case UpgradeType.SoulCurse:    return 1f;                           // 标记
+
+                // --- 收割流 ---
+                case UpgradeType.ScytheUnlock:  return 1f;                          // 标记
+                case UpgradeType.ScytheRange:   return 3.0f + 0.5f * level;         // 半径
+                case UpgradeType.ScytheDamage:   return 1.2f + 0.3f * level;        // 伤害倍率
+                case UpgradeType.ScytheSpeed:   return Mathf.Max(0.3f, 1.5f * (1f - 0.1f * level)); // 间隔
+                case UpgradeType.Lifesteal:     return 0.03f + 0.02f * level;       // 吸血率
+
+                // --- 核心机制 ---
+                case UpgradeType.DeathLight:   return 1f;                           // 标记
+
+                // --- 光束强化 ---
+                case UpgradeType.BeamCount:    return 1 + level;                     // 光束总数（base 1 + level）
+                case UpgradeType.BeamRadius:   return 0.5f + 0.3f * level;            // 光束命中半径
+
                 default: return 0f;
             }
         }
+
+        // ======== 名称与描述 ========
 
         /// <summary>获取升级类型的中文名</summary>
         public static string GetTypeName(UpgradeType type)
         {
             switch (type)
             {
-                case UpgradeType.FireRate: return "攻速提升";
-                case UpgradeType.BulletCount: return "子弹数量";
-                case UpgradeType.Penetration: return "穿透";
-                case UpgradeType.Damage: return "攻击力";
-                case UpgradeType.MoveSpeed: return "移动速度";
-                case UpgradeType.MaxHP: return "生命提升";
-                case UpgradeType.Armor: return "护甲强化";
-                case UpgradeType.MagnetRange: return "拾取范围";
-                case UpgradeType.Range: return "射程";
-                case UpgradeType.XPBoost: return "经验加成";
-                case UpgradeType.Crit: return "暴击";
+                case UpgradeType.FireRate:    return "攻速提升";
+                case UpgradeType.Damage:      return "攻击力";
+                case UpgradeType.MoveSpeed:   return "移动速度";
+                case UpgradeType.MaxHP:       return "生命提升";
+                case UpgradeType.Armor:       return "护甲强化";
+                case UpgradeType.MagnetRange:  return "拾取范围";
+                case UpgradeType.XPBoost:     return "经验加成";
+                case UpgradeType.Crit:        return "暴击";
+                case UpgradeType.SoulHarvest:  return "灵魂收割";
+                case UpgradeType.SoulPower:    return "灵魂强化";
+                case UpgradeType.SoulChain:    return "灵魂连锁";
+                case UpgradeType.SoulSwarm:    return "灵魂蜂拥";
+                case UpgradeType.SoulCurse:    return "灵魂诅咒";
+                case UpgradeType.ScytheUnlock:  return "镰刀解锁";
+                case UpgradeType.ScytheRange:   return "镰刀范围";
+                case UpgradeType.ScytheDamage:  return "镰刀伤害";
+                case UpgradeType.ScytheSpeed:   return "镰刀攻速";
+                case UpgradeType.Lifesteal:     return "生命汲取";
+                case UpgradeType.DeathLight:   return "死神之光";
+                case UpgradeType.BeamCount:    return "光束增殖";
+                case UpgradeType.BeamRadius:   return "光束扩散";
                 default: return "";
             }
         }
 
-        /// <summary>获取升级卡片的一句话描述</summary>
-        public static string GetDescription(UpgradeType type, Rarity rarity)
+        /// <summary>获取升级卡片的描述（按下一级等级计算效果）</summary>
+        public static string GetDescription(UpgradeType type, int nextLevel)
         {
-            float value = GetValue(new UpgradeDefinition(type, rarity));
+            float value = GetValue(type, nextLevel);
 
             switch (type)
             {
-                case UpgradeType.FireRate: return $"攻速 ×{value:0.##}";
-                case UpgradeType.BulletCount: return $"每轮子弹 +{(int)value}";
-                case UpgradeType.Penetration: return $"穿透敌人 +{(int)value}";
-                case UpgradeType.Damage: return $"伤害 +{(int)value}";
-                case UpgradeType.MoveSpeed: return $"移速 ×{value:0.##}";
-                case UpgradeType.MaxHP: return $"最大生命 +{(int)value}";
-                case UpgradeType.Armor: return $"护甲 +{(int)value}";
-                case UpgradeType.MagnetRange: return $"拾取范围 +{value:0.#}";
-                case UpgradeType.Range: return $"子弹射程 ×{value:0.##}";
-                case UpgradeType.XPBoost: return $"经验获取 +{value * 100f:0}%";
-                case UpgradeType.Crit: return $"暴击率 +{value * 100f:0}%";
+                // 属性
+                case UpgradeType.FireRate:    return $"攻速 +{value * 100f - 100f:0}%";
+                case UpgradeType.Damage:      return $"伤害 +{(int)value}";
+                case UpgradeType.MoveSpeed:   return $"移速 +{(value - 1f) * 100f:0}%";
+                case UpgradeType.MaxHP:       return $"最大生命 +{(int)value}";
+                case UpgradeType.Armor:       return $"护甲 +{(int)value}";
+                case UpgradeType.MagnetRange:  return $"拾取范围 +{value:0.#}";
+                case UpgradeType.XPBoost:     return $"经验获取 +{value * 100f:0}%";
+                case UpgradeType.Crit:        return $"暴击率 +{value * 100f:0.#}%";
+
+                // 灵魂流
+                case UpgradeType.SoulHarvest:  return $"击杀 {value * 100f:0}% 概率生成灵魂\n同时存在上限 {(int)GetValue(UpgradeType.SoulSwarm, 0) + (int)value * 0 + 3 + (nextLevel - 1)}";
+                case UpgradeType.SoulPower:    return $"灵魂伤害倍率 ×{value:0.#}";
+                case UpgradeType.SoulChain:    return $"灵魂命中后连锁 {(int)value} 个敌人\n每跳伤害递减 20%";
+                case UpgradeType.SoulSwarm:    return $"灵魂上限 +{(int)value - 3}";
+                case UpgradeType.SoulCurse:    return $"灵魂大幅强化：穿透+不掉血\n代价：每次生成灵魂 -1 HP";
+
+                // 收割流
+                case UpgradeType.ScytheUnlock:  return "解锁近战镰刀：每 1.5s 挥砍\n前方扇形范围造成 120% 伤害";
+                case UpgradeType.ScytheRange:   return $"镰刀范围 → {value:0.#}";
+                case UpgradeType.ScytheDamage:  return $"镰刀伤害倍率 → {value:0.#}";
+                case UpgradeType.ScytheSpeed:   return $"镰刀间隔 → {value:0.##}s";
+                case UpgradeType.Lifesteal:     return $"所有伤害吸血 {value * 100f:0}%";
+                case UpgradeType.DeathLight:   return "将普通攻击转化为死亡光束";
+                case UpgradeType.BeamCount:    return $"光束数量 → {(int)value}";
+                case UpgradeType.BeamRadius:   return $"光束半径 → {value:0.#}";
+
                 default: return "";
             }
         }
 
-        /// <summary>获取稀有度颜色</summary>
-        public static Color GetRarityColor(Rarity rarity)
-        {
-            return rarityColors[(int)rarity];
-        }
+        // ======== 随机抽取（双池系统） ========
 
-        /// <summary>获取稀有度中文名</summary>
-        public static string GetRarityName(Rarity rarity)
+        /// <summary>属性池中的类型</summary>
+        private static readonly UpgradeType[] statPool =
         {
-            return rarityNames[(int)rarity];
-        }
+            UpgradeType.FireRate, UpgradeType.Damage, UpgradeType.MoveSpeed,
+            UpgradeType.MaxHP, UpgradeType.Armor, UpgradeType.MagnetRange,
+            UpgradeType.XPBoost, UpgradeType.Crit
+        };
 
-        // ======== 随机方法 ========
+        /// <summary>机制池中的类型</summary>
+        private static readonly UpgradeType[] mechanicPool =
+        {
+            UpgradeType.SoulHarvest, UpgradeType.SoulPower, UpgradeType.SoulChain,
+            UpgradeType.SoulSwarm, UpgradeType.SoulCurse,
+            UpgradeType.ScytheUnlock, UpgradeType.ScytheRange, UpgradeType.ScytheDamage,
+            UpgradeType.ScytheSpeed, UpgradeType.Lifesteal,
+            UpgradeType.BeamCount, UpgradeType.BeamRadius
+        };
+
+        /// <summary>核心机制池（当前为空，后续添加死神之光/亡魂契约/死神降临）</summary>
+        private static readonly UpgradeType[] corePool = { UpgradeType.DeathLight };
+
+        /// <summary>诅咒池（当前为空，后续添加跨流派诅咒升级）</summary>
+        private static readonly UpgradeType[] cursePool = { };
 
         /// <summary>
-        /// 按权重随机出一个稀有度（白→金）。
-        /// 累加权值法：把权重排成一列，随机一个总数内的数，落在哪段就是哪个稀有度。
+        /// 四池随机抽取。
+        /// 前 5 分钟：属性 60% / 机制 40%；5 分钟后：各 50%。
+        /// Core 和 Curse 池当前为空，抽取时自动跳过回退到属性池。
+        /// 满级和前置不满足的升级从池中排除。
         /// </summary>
-        public static Rarity RollRarity()
+        public static UpgradeDefinition RollChoice(int[] pickCounts, float gameTime)
         {
-            int total = 0;
-            for (int i = 0; i < rarityWeights.Length; i++)
-                total += rarityWeights[i];
+            // 决定抽哪个池
+            float mechanicWeight = gameTime < 300f ? 40f : 50f;
+            bool rollMechanic = Random.Range(0f, 100f) < mechanicWeight;
 
-            int roll = Random.Range(0, total);
-
-            int cumulative = 0;
-            for (int i = 0; i < rarityWeights.Length; i++)
+            if (rollMechanic)
             {
-                cumulative += rarityWeights[i];
-                if (roll < cumulative)
-                    return (Rarity)i;
+                var available = GetAvailableFromPool(mechanicPool, pickCounts);
+                if (available.Count > 0)
+                    return new UpgradeDefinition(available[Random.Range(0, available.Count)]);
             }
 
-            return Rarity.White;
+            // 尝试 Core 池（当前为空，自动跳过）
+            var availableCore = GetAvailableFromPool(corePool, pickCounts);
+            if (availableCore.Count > 0 && Random.Range(0f, 100f) < 15f)
+                return new UpgradeDefinition(availableCore[Random.Range(0, availableCore.Count)]);
+
+            // 尝试 Curse 池（当前为空，自动跳过）
+            var availableCurse = GetAvailableFromPool(cursePool, pickCounts);
+            if (availableCurse.Count > 0 && Random.Range(0f, 100f) < 10f)
+                return new UpgradeDefinition(availableCurse[Random.Range(0, availableCurse.Count)]);
+
+            // 退回属性池
+            var availableStats = GetAvailableFromPool(statPool, pickCounts);
+            if (availableStats.Count > 0)
+                return new UpgradeDefinition(availableStats[Random.Range(0, availableStats.Count)]);
+
+            // 属性池也空了（理论上不会）→ 随便给一个
+            return new UpgradeDefinition(UpgradeType.Damage);
         }
 
-        /// <summary>
-        /// 随机生成一张升级卡（带构筑倾向）。
-        /// 15% 概率出红卡（子弹数量或穿透，固定 +1，不受倾向加权影响）；
-        /// 85% 概率出普通卡（9 种类型 × 5 种稀有度），
-        /// 类型用加权抽取：每类权重 = 1 + (已选过 ? 1.5 : 0)，选过的流派更容易再出。
-        /// 护甲 50% 概率替换为其他类型（在加权之后执行），降低整体出现率。
-        /// </summary>
-        public static UpgradeDefinition RollChoice(int[] pickCounts)
+        /// <summary>从指定池中获取可用升级（排除满级 + 前置不满足的）</summary>
+        private static List<UpgradeType> GetAvailableFromPool(UpgradeType[] pool, int[] pickCounts)
         {
-            // 15% 概率出红卡
-            if (Random.Range(0f, 1f) < 0.15f)
+            var result = new List<UpgradeType>();
+            foreach (var type in pool)
             {
-                UpgradeType redType = Random.Range(0, 2) == 0
-                    ? UpgradeType.BulletCount
-                    : UpgradeType.Penetration;
-                return new UpgradeDefinition(redType, Rarity.Red);
-            }
-
-            // 正常卡：9 种类型（不含红卡专属的子弹数量和穿透）
-            UpgradeType[] normalTypes =
-            {
-                UpgradeType.FireRate,
-                UpgradeType.Damage,
-                UpgradeType.MoveSpeed,
-                UpgradeType.MaxHP,
-                UpgradeType.Armor,
-                UpgradeType.MagnetRange,
-                UpgradeType.Range,
-                UpgradeType.XPBoost,
-                UpgradeType.Crit
-            };
-
-            // 加权选类型：选过的流派权重更高，偏向已选构筑
-            UpgradeType type = RollWeightedType(pickCounts, normalTypes);
-
-            // 护甲整体抽取概率降低：50% 概率换成其他类型（排除护甲，重新加权选一次）
-            if (type == UpgradeType.Armor && Random.Range(0f, 1f) < 0.5f)
-            {
-                UpgradeType[] noArmorTypes =
+                int level = pickCounts[(int)type];
+                var data = GetLevelData(type);
+                if (level >= data.maxLevel)
+                    continue;
+                // 检查前置
+                if (data.prerequisiteLevel > 0)
                 {
-                    UpgradeType.FireRate,
-                    UpgradeType.Damage,
-                    UpgradeType.MoveSpeed,
-                    UpgradeType.MaxHP,
-                    UpgradeType.MagnetRange,
-                    UpgradeType.Range,
-                    UpgradeType.XPBoost,
-                    UpgradeType.Crit
-                };
-                type = RollWeightedType(pickCounts, noArmorTypes);
+                    int prereqLevel = pickCounts[(int)data.prerequisite];
+                    if (prereqLevel < data.prerequisiteLevel)
+                        continue;
+                }
+                result.Add(type);
             }
-
-            Rarity rarity = RollRarity();
-            return new UpgradeDefinition(type, rarity);
+            return result;
         }
 
-        /// <summary>按倾向权重从给定类型池里随机选一个类型（累加权值法）</summary>
-        private static UpgradeType RollWeightedType(int[] pickCounts, UpgradeType[] pool)
+        /// <summary>检查前置是否满足</summary>
+        public static bool IsPrerequisiteMet(UpgradeType type, int[] pickCounts)
         {
-            float total = 0f;
-            for (int i = 0; i < pool.Length; i++)
-                total += TypeWeight(pickCounts, pool[i]);
-
-            float roll = Random.Range(0f, total);
-            float cumulative = 0f;
-            for (int i = 0; i < pool.Length; i++)
-            {
-                cumulative += TypeWeight(pickCounts, pool[i]);
-                if (roll < cumulative)
-                    return pool[i];
-            }
-            return pool[pool.Length - 1]; // 兜底（浮点误差时）
-        }
-
-        /// <summary>某类型的抽卡权重：基础 1，已选过 → ×2.5（+1.5）</summary>
-        private static float TypeWeight(int[] pickCounts, UpgradeType type)
-        {
-            return 1f + (pickCounts != null && pickCounts[(int)type] > 0 ? 1.5f : 0f);
+            var data = GetLevelData(type);
+            if (data.prerequisiteLevel <= 0)
+                return true;
+            return pickCounts[(int)data.prerequisite] >= data.prerequisiteLevel;
         }
     }
 }

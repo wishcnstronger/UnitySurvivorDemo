@@ -273,8 +273,9 @@ namespace SurvivorDemo
 
             // 4. 一次性销毁所有敌人 / 玩家子弹 / 敌人子弹 / 经验宝石
             //    （只在重开时调用一次，不是每帧路径，可用 FindObjectsOfType）
-            foreach (EnemyMovement enemy in FindObjectsOfType<EnemyMovement>())
+            foreach (EnemyMovement enemy in EnemyMovement.ActiveEnemies.ToArray())
                 Destroy(enemy.gameObject);
+            EnemyMovement.ActiveEnemies.Clear();
 
             foreach (Bullet bullet in FindObjectsOfType<Bullet>())
                 Destroy(bullet.gameObject);

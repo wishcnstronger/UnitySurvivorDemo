@@ -35,7 +35,7 @@ namespace SurvivorDemo
         /// </summary>
         private void Start()
         {
-            CreateBar();
+            // 怪物血条取消显示
         }
 
         /// <summary>

@@ -82,7 +82,7 @@ namespace SurvivorDemo
             if (panelBg != null)
             {
                 panelImage.sprite = panelBg;
-                panelImage.type = Image.Type.Sliced;
+                panelImage.type = Image.Type.Simple;
                 panelImage.color = Color.white;
             }
             else

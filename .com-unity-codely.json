@@ -1,10 +1,10 @@
 {
-  "unity_port": 58098,
-  "stream_port": 63635,
+  "unity_port": 62027,
+  "stream_port": 63245,
   "created_date": "2026-06-17T06:44:20.0249076Z",
   "project_path": "C:/Users/1/SurvivorDemo/Assets",
   "reloading": false,
   "reason": "ready",
-  "seq": 22686,
-  "last_heartbeat": "2026-08-16T13:31:45.870Z"
+  "seq": 19922,
+  "last_heartbeat": "2026-08-20T03:24:13.490Z"
 }

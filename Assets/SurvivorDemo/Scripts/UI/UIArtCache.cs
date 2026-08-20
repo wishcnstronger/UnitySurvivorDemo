@@ -22,17 +22,27 @@ namespace SurvivorDemo
             {
                 _iconsLoaded = true;
                 _upgradeIcons = new Sprite[UpgradeConfig.TypeCount];
+                // 属性升级
                 _upgradeIcons[(int)UpgradeConfig.UpgradeType.FireRate]     = LoadSprite("UI/FireRateIcon");
-                _upgradeIcons[(int)UpgradeConfig.UpgradeType.BulletCount]  = LoadSprite("UI/BulletCountIcon");
-                _upgradeIcons[(int)UpgradeConfig.UpgradeType.Penetration]  = LoadSprite("UI/PenetrationIcon");
                 _upgradeIcons[(int)UpgradeConfig.UpgradeType.Damage]       = LoadSprite("UI/DamageIcon");
                 _upgradeIcons[(int)UpgradeConfig.UpgradeType.MoveSpeed]    = LoadSprite("UI/MoveSpeedIcon");
                 _upgradeIcons[(int)UpgradeConfig.UpgradeType.MaxHP]        = LoadSprite("UI/MaxHPIcon");
                 _upgradeIcons[(int)UpgradeConfig.UpgradeType.Armor]        = LoadSprite("UI/ArmorIcon");
                 _upgradeIcons[(int)UpgradeConfig.UpgradeType.MagnetRange]  = LoadSprite("UI/MagnetRangeIcon");
-                _upgradeIcons[(int)UpgradeConfig.UpgradeType.Range]        = LoadSprite("UI/RangeIcon");
                 _upgradeIcons[(int)UpgradeConfig.UpgradeType.XPBoost]      = LoadSprite("UI/XPBoostIcon");
                 _upgradeIcons[(int)UpgradeConfig.UpgradeType.Crit]        = LoadSprite("UI/CritIcon");
+                // 灵魂流
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.SoulHarvest]  = LoadSprite("UI/SoulHarvestIcon");
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.SoulPower]    = LoadSprite("UI/SoulPowerIcon");
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.SoulChain]    = LoadSprite("UI/SoulChainIcon");
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.SoulSwarm]    = LoadSprite("UI/SoulSwarmIcon");
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.SoulCurse]    = LoadSprite("UI/SoulCurseIcon");
+                // 收割流
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.ScytheUnlock]  = LoadSprite("UI/ScytheUnlockIcon");
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.ScytheRange]   = LoadSprite("UI/ScytheRangeIcon");
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.ScytheDamage]  = LoadSprite("UI/ScytheDamageIcon");
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.ScytheSpeed]   = LoadSprite("UI/ScytheSpeedIcon");
+                _upgradeIcons[(int)UpgradeConfig.UpgradeType.Lifesteal]     = LoadSprite("UI/LifestealIcon");
             }
             int idx = (int)type;
             if (idx >= 0 && idx < _upgradeIcons.Length)

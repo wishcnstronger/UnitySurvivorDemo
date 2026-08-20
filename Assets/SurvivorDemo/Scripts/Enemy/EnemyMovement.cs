@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SurvivorDemo
@@ -5,6 +6,7 @@ namespace SurvivorDemo
     /// <summary>
     /// 敌人移动组件。
     /// 每帧朝玩家方向移动，使用最简单的 MoveTowards 方式。
+    /// 提供静态注册表替代 FindObjectsOfType，供 PlayerWeapon/Soul/ScytheController 查找敌人。
     /// </summary>
     public class EnemyMovement : MonoBehaviour
     {
@@ -21,35 +23,48 @@ namespace SurvivorDemo
         /// <summary>玩家 Transform 引用</summary>
         private Transform player;
 
+        // ======== 静态注册表（替代 FindObjectsOfType） ========
+        private static readonly List<EnemyMovement> activeEnemies = new List<EnemyMovement>();
+
+        /// <summary>获取所有活跃敌人列表（只读，不拷贝）</summary>
+        public static List<EnemyMovement> ActiveEnemies => activeEnemies;
+
+        private void OnEnable()
+        {
+            if (!activeEnemies.Contains(this))
+                activeEnemies.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            activeEnemies.Remove(this);
+        }
+
+        private void OnDestroy()
+        {
+            activeEnemies.Remove(this);
+        }
+
         /// <summary>由 EnemySpawner 调用，按时间倍率缩放移动速度</summary>
         public void ScaleSpeed(float multiplier)
         {
             moveSpeed *= multiplier;
         }
 
-        /// <summary>游戏开始时查找玩家</summary>
         private void Start()
         {
-            // 通过 Tag 查找玩家
             GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
             if (playerObj != null)
-            {
                 player = playerObj.transform;
-            }
         }
 
-        /// <summary>每帧朝玩家移动</summary>
         private void Update()
         {
-            // 玩家不存在（已死亡或未生成）就停止
             if (player == null)
                 return;
-
-            // 冲锋期间跳过正常移动，由 ChargeAttacker 接管
             if (isCharging)
                 return;
 
-            // 朝玩家方向移动，最简单的方式
             transform.position = Vector2.MoveTowards(
                 transform.position,
                 player.position,

@@ -4,7 +4,8 @@ namespace SurvivorDemo
 {
     /// <summary>
     /// 玩家运行时属性数据。
-    /// Phase1 仅用 moveSpeed，其余为后续阶段预留。
+    /// 包含移动/生命/护甲/磁铁/经验/等级/诅咒/吸血等全部属性。
+    /// 诅咒值：每点降低 1% 最大生命，增加 5% 敌人生成速度。
     /// </summary>
     public class PlayerStats : MonoBehaviour
     {
@@ -13,7 +14,7 @@ namespace SurvivorDemo
         private float moveSpeed = 5f;
 
         [Header("生命")]
-        [SerializeField, Tooltip("最大生命值")]
+        [SerializeField, Tooltip("最大生命值（基础值，不受诅咒影响）")]
         private float maxHP = 100f;
 
         [SerializeField, Tooltip("护甲值，固定减伤（实际伤害=伤害-护甲，最低0）")]
@@ -27,10 +28,10 @@ namespace SurvivorDemo
         [SerializeField, Tooltip("当前经验值")]
         private float currentXP = 0f;
 
-        [SerializeField, Tooltip("升级所需经验值（第一级需求，升级后按 xpGrowth 倍率增长）")]
+        [SerializeField, Tooltip("升级所需经验值")]
         private float xpToNextLevel = 10f;
 
-        [SerializeField, Tooltip("每升一级经验需求的增长倍率（乘法曲线：10 → 12 → 13 → 15...）")]
+        [SerializeField, Tooltip("每升一级经验需求的增长倍率")]
         private float xpGrowth = 1.15f;
 
         [Header("等级")]
@@ -38,20 +39,28 @@ namespace SurvivorDemo
         private int level = 1;
 
         [Header("构筑")]
-        [SerializeField, Tooltip("经验获取倍率（经验加成卡提升，1 = 无加成）")]
+        [SerializeField, Tooltip("经验获取倍率")]
         private float xpRate = 1f;
 
-        /// <summary>待处理的升级次数（升级时 +1，三选一选择后 -1）</summary>
+        [Header("诅咒")]
+        [Tooltip("诅咒值（每点 -1% 最大生命，+5% 敌人生成速度）")]
+        public int curseValue = 0;
+
+        [Header("吸血")]
+        [Tooltip("吸血率（所有伤害的百分比转化为生命）")]
+        public float lifestealRate = 0f;
+
+        /// <summary>待处理的升级次数</summary>
         public int pendingLevelUps = 0;
 
-        /// <summary>每种升级类型被选中的次数（构筑倾向，实例字段：重开新玩家自动清零，无需 static）</summary>
+        /// <summary>每种升级类型被选中的次数</summary>
         private int[] pickCounts = new int[UpgradeConfig.TypeCount];
 
-        // --- 运行时状态 ---
         private float currentHP;
 
         public float MoveSpeed => moveSpeed;
-        public float MaxHP => maxHP;
+        /// <summary>实际最大生命（受诅咒影响）：maxHP × (1 - 诅咒×0.01)</summary>
+        public float MaxHP => maxHP * (1f - curseValue * 0.01f);
         public float CurrentHP => currentHP;
         public float Armor => armor;
         public float MagnetRange => magnetRange;
@@ -59,16 +68,14 @@ namespace SurvivorDemo
         public float XPToNextLevel => xpToNextLevel;
         public int Level => level;
         public float XPRate => xpRate;
+        /// <summary>诅咒加速生成系数（0=无加速，0.5=+50%速度）</summary>
+        public float CurseSpawnBoost => curseValue * 0.05f;
 
         private void Awake()
         {
             currentHP = maxHP;
         }
 
-        /// <summary>
-        /// 受到伤害，考虑护甲减伤。
-        /// 后续阶段会加入无敌帧逻辑。
-        /// </summary>
         public void TakeDamage(float amount)
         {
             float reduced = Mathf.Max(1f, amount - armor);
@@ -76,95 +83,51 @@ namespace SurvivorDemo
             if (currentHP < 0f) currentHP = 0f;
         }
 
-        /// <summary>
-        /// 增加经验值。
-        /// 经验满后自动升级，用 while 循环处理一次连升多级的情况。
-        /// 每升一级 pendingLevelUps +1，由升级流程系统逐次处理。
-        /// </summary>
         public void AddXP(int amount)
         {
-            // 经验加成倍率只作用于实际获得值，宝石外观/拾取逻辑不动
             currentXP += amount * xpRate;
-
-            // 经验满就升级，可能一次连升多级
             while (currentXP >= xpToNextLevel)
             {
                 currentXP -= xpToNextLevel;
                 level++;
-                xpToNextLevel = Mathf.Ceil(xpToNextLevel * xpGrowth); // 乘法曲线：10 → 12 → 13 → 15...
+                xpToNextLevel = Mathf.Ceil(xpToNextLevel * xpGrowth);
                 pendingLevelUps++;
             }
         }
 
-        /// <summary>
-        /// 消费一次待处理升级。
-        /// 三选一选完后由升级流程调用。
-        /// </summary>
-        /// <returns>是否还有剩余的待处理升级</returns>
         public bool ConsumePendingLevelUp()
         {
-            if (pendingLevelUps <= 0)
-                return false;
-
+            if (pendingLevelUps <= 0) return false;
             pendingLevelUps--;
             return pendingLevelUps > 0;
         }
 
-        /// <summary>移动速度乘法强化（由升级流程调用）</summary>
-        public void AddMoveSpeedMultiplier(float factor)
+        // ======== 属性升级方法 ========
+
+        public void AddMoveSpeedMultiplier(float factor) { moveSpeed *= factor; }
+        public void AddMaxHP(float amount) { maxHP += amount; currentHP += amount; }
+        public void AddArmor(float amount) { armor = Mathf.Min(30, armor + (int)amount); }
+        public void AddMagnetRange(float amount) { magnetRange += amount; }
+        public void AddXPRate(float amount) { xpRate += amount; }
+
+        public bool IsArmorAtCap() { return armor >= 30; }
+
+        // ======== 诅咒与吸血 ========
+
+        public void AddCurse(int amount) { curseValue += amount; }
+        public void AddLifesteal(float rate) { lifestealRate += rate; }
+
+        /// <summary>治疗（不超过实际最大生命）</summary>
+        public void Heal(float amount)
         {
-            moveSpeed *= factor;
+            currentHP = Mathf.Min(MaxHP, currentHP + amount);
         }
 
-        /// <summary>最大生命值加法强化，同时恢复等量生命（由升级流程调用）</summary>
-        public void AddMaxHP(float amount)
-        {
-            maxHP += amount;
-            currentHP += amount;
-        }
+        public void HealToFull() { currentHP = MaxHP; }
 
-        /// <summary>护甲加法强化，上限 30（由升级流程调用）</summary>
-        public void AddArmor(float amount)
-        {
-            armor = Mathf.Min(30, armor + (int)amount);
-        }
+        // ======== 构筑统计 ========
 
-        /// <summary>护甲是否已到上限（升级抽卡时用于排除零收益选项）</summary>
-        public bool IsArmorAtCap()
-        {
-            return armor >= 30;
-        }
-
-        /// <summary>经验拾取范围加法强化（由升级流程调用）</summary>
-        public void AddMagnetRange(float amount)
-        {
-            magnetRange += amount;
-        }
-
-        /// <summary>记录一次升级选择（构筑倾向统计，由升级流程在应用强化后调用）</summary>
-        public void RecordPick(UpgradeConfig.UpgradeType type)
-        {
-            pickCounts[(int)type]++;
-        }
-
-        /// <summary>查询某类型已被选择的次数（抽卡加权用：选过的流派更容易再出）</summary>
-        public int GetPickCount(UpgradeConfig.UpgradeType type)
-        {
-            return pickCounts[(int)type];
-        }
-
-        /// <summary>经验获取倍率加法强化（经验加成卡调用）</summary>
-        public void AddXPRate(float amount)
-        {
-            xpRate += amount;
-        }
-
-        /// <summary>
-        /// 回满生命。
-        /// </summary>
-        public void HealToFull()
-        {
-            currentHP = maxHP;
-        }
+        public void RecordPick(UpgradeConfig.UpgradeType type) { pickCounts[(int)type]++; }
+        public int GetPickCount(UpgradeConfig.UpgradeType type) { return pickCounts[(int)type]; }
     }
 }

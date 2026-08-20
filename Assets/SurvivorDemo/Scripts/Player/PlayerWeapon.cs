@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SurvivorDemo
@@ -42,6 +44,33 @@ namespace SurvivorDemo
         /// <summary>暴击倍率（暴击时伤害 × 此值）</summary>
         public float critMultiplier = 2f;
 
+        /// <summary>死神之光是否已解锁（解锁后普通攻击切换为光束）</summary>
+        private bool isDeathLightActive;
+
+        /// <summary>光束 LineRenderer 池（按需创建，复用）</summary>
+        private List<LineRenderer> beamLines = new List<LineRenderer>();
+
+        /// <summary>当前激活光束的终点列表（每次开火时清空重建）</summary>
+        private List<Vector3> beamEndPositions = new List<Vector3>();
+
+        /// <summary>光束显示剩余时间（秒），归零后隐藏</summary>
+        private float beamDisplayTimer;
+
+        /// <summary>光束总持续时间（用于淡出比例计算）</summary>
+        private float beamMaxDisplayTime;
+
+        /// <summary>光束命中半径（光束宽度内的敌人都会被命中），可被升级强化</summary>
+        public float beamRadius = 0.5f;
+
+        /// <summary>光束数量（默认 1，可被升级强化）</summary>
+        public int beamCount = 1;
+
+        /// <summary>光束基础起始色：青白核心</summary>
+        private static readonly Color BeamStartColor = new Color(0.6f, 1f, 0.95f, 0.9f);
+
+        /// <summary>光束基础结束色：紫色尾端</summary>
+        private static readonly Color BeamEndColor = new Color(0.4f, 0.2f, 0.6f, 0.3f);
+
         /// <summary>攻击计时器，累计到 fireInterval 时开火</summary>
         private float timer;
 
@@ -62,6 +91,34 @@ namespace SurvivorDemo
             // 累加计时
             timer += Time.deltaTime;
 
+            // 光束淡出 + 起点跟随（多光束）
+            if (isDeathLightActive && beamDisplayTimer > 0f)
+            {
+                beamDisplayTimer -= Time.deltaTime;
+
+                float fadeRatio = Mathf.Clamp01(beamDisplayTimer / beamMaxDisplayTime);
+                Color startC = new Color(BeamStartColor.r, BeamStartColor.g, BeamStartColor.b, BeamStartColor.a * fadeRatio);
+                Color endC = new Color(BeamEndColor.r, BeamEndColor.g, BeamEndColor.b, BeamEndColor.a * fadeRatio);
+
+                for (int i = 0; i < beamEndPositions.Count; i++)
+                {
+                    if (i < beamLines.Count && beamLines[i] != null && beamLines[i].enabled)
+                    {
+                        beamLines[i].SetPosition(0, transform.position);
+                        beamLines[i].SetPosition(1, beamEndPositions[i]);
+                        beamLines[i].startColor = startC;
+                        beamLines[i].endColor = endC;
+                    }
+                }
+
+                if (beamDisplayTimer <= 0f)
+                {
+                    foreach (var bl in beamLines)
+                        if (bl != null) bl.enabled = false;
+                    beamEndPositions.Clear();
+                }
+            }
+
             // 达到攻击间隔时开火，然后重置计时器
             if (timer >= fireInterval)
             {
@@ -73,6 +130,13 @@ namespace SurvivorDemo
         /// <summary>找到最近的敌人，朝它发射一圈子弹</summary>
         private void Fire()
         {
+            // 死神之光：光束攻击
+            if (isDeathLightActive)
+            {
+                FireDeathLight();
+                return;
+            }
+
             // 没有子弹模板就不攻击
             if (bulletPrefab == null)
                 return;
@@ -118,11 +182,148 @@ namespace SurvivorDemo
                     bulletComp.SetPenetration(penetration);
                     bulletComp.SetLifetime(bulletLifetime);
                     bulletComp.SetCrit(isCrit);
+                    bulletComp.SetSource(gameObject);
                 }
             }
 
             // C2: 射击音效
             AudioManager.Instance?.PlaySFX("shoot", 0.3f);
+        }
+
+        /// <summary>死神之光：穿透光束攻击（多光束，各命中半径内所有敌人）</summary>
+        private void FireDeathLight()
+        {
+            EnemyMovement[] enemies = EnemyMovement.ActiveEnemies.ToArray();
+            if (enemies.Length == 0)
+                return;
+
+            // 按距离排序，近的优先分配光束
+            System.Array.Sort(enemies, (a, b) =>
+                Vector2.Distance(transform.position, a.transform.position)
+                .CompareTo(Vector2.Distance(transform.position, b.transform.position)));
+
+            Vector2 beamStart = transform.position;
+
+            // 基准方向（指向最近敌人）
+            Vector2 baseDir = ((Vector2)enemies[0].transform.position - beamStart).normalized;
+            if (baseDir.sqrMagnitude < 0.0001f)
+                baseDir = Vector2.up;
+
+            // 为每条光束确定方向
+            Vector2[] dirs = new Vector2[beamCount];
+            for (int i = 0; i < beamCount; i++)
+            {
+                if (i < enemies.Length)
+                {
+                    // 直接瞄准不同敌人
+                    Vector2 d = ((Vector2)enemies[i].transform.position - beamStart).normalized;
+                    dirs[i] = d.sqrMagnitude < 0.0001f ? baseDir : d;
+                }
+                else
+                {
+                    // 敌人不够时剩余光束扇形分散
+                    int extra = beamCount - enemies.Length;
+                    float fanAngle = (i - enemies.Length - (extra - 1) / 2f) * 20f;
+                    dirs[i] = Rotate(baseDir, fanAngle * Mathf.Deg2Rad);
+                }
+            }
+
+            // 逐条光束：伤害半径内敌人 + 配置 LineRenderer
+            beamEndPositions.Clear();
+            var flashed = new HashSet<Transform>();
+
+            for (int i = 0; i < beamCount; i++)
+            {
+                Vector2 beamEnd = beamStart + dirs[i] * searchRadius;
+
+                // 伤害该光束半径内所有敌人
+                foreach (EnemyMovement enemy in enemies)
+                {
+                    float distToBeam = DistanceFromPointToSegment(enemy.transform.position, beamStart, beamEnd);
+                    if (distToBeam <= beamRadius)
+                    {
+                        bool isCrit = Random.value < critChance;
+                        float dmg = isCrit ? damage * critMultiplier : damage;
+                        EnemyHealth eh = enemy.GetComponent<EnemyHealth>();
+                        if (eh != null)
+                        {
+                            eh.ReceiveDamage(dmg, isCrit, gameObject);
+                            // 同帧同敌人只闪光一次
+                            if (flashed.Add(enemy.transform))
+                                StartCoroutine(FlashHit(enemy.transform));
+                        }
+                    }
+                }
+
+                // 确保 LineRenderer 池足够
+                while (beamLines.Count <= i)
+                {
+                    LineRenderer lr = gameObject.AddComponent<LineRenderer>();
+                    lr.material = new Material(Shader.Find("Sprites/Default"));
+                    lr.sortingOrder = 15;
+                    lr.enabled = false;
+                    beamLines.Add(lr);
+                }
+
+                beamLines[i].startWidth = beamRadius * 2f;
+                beamLines[i].endWidth = beamRadius * 1.2f;
+                beamLines[i].startColor = BeamStartColor;
+                beamLines[i].endColor = BeamEndColor;
+                beamLines[i].enabled = true;
+                beamLines[i].SetPosition(0, transform.position);
+                beamLines[i].SetPosition(1, beamEnd);
+                beamEndPositions.Add(beamEnd);
+            }
+
+            beamMaxDisplayTime = Mathf.Min(0.2f, fireInterval * 0.5f);
+            beamDisplayTimer = beamMaxDisplayTime;
+
+            AudioManager.Instance?.PlaySFX("hit", 0.15f);
+        }
+
+        /// <summary>计算点 P 到线段 AB 的最短距离</summary>
+        private float DistanceFromPointToSegment(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float abSqrMag = ab.sqrMagnitude;
+            if (abSqrMag < 0.0001f)
+                return Vector2.Distance(p, a);
+
+            float t = Vector2.Dot(p - a, ab) / abSqrMag;
+            t = Mathf.Clamp01(t);
+            Vector2 closest = a + ab * t;
+            return Vector2.Distance(p, closest);
+        }
+
+        /// <summary>命中闪光协程：SpriteRenderer 短暂变白后恢复</summary>
+        private IEnumerator FlashHit(Transform target)
+        {
+            SpriteRenderer sr = target.GetComponent<SpriteRenderer>();
+            if (sr == null)
+                yield break;
+
+            Color original = sr.color;
+            sr.color = Color.white;
+            yield return new WaitForSeconds(0.08f);
+            sr.color = original;
+        }
+
+        /// <summary>解锁死神之光（由 LevelUpManager 调用）</summary>
+        public void UnlockDeathLight()
+        {
+            isDeathLightActive = true;
+        }
+
+        /// <summary>设置光束数量（由 LevelUpManager 调用）</summary>
+        public void SetBeamCount(int count)
+        {
+            beamCount = Mathf.Max(1, count);
+        }
+
+        /// <summary>设置光束命中半径（由 LevelUpManager 调用）</summary>
+        public void SetBeamRadius(float radius)
+        {
+            beamRadius = Mathf.Max(0.1f, radius);
         }
 
         /// <summary>
@@ -161,31 +362,13 @@ namespace SurvivorDemo
             return fireInterval <= minFireInterval;
         }
 
-        /// <summary>子弹数量加法强化</summary>
-        public void AddBulletCount(int count)
-        {
-            bulletCount += count;
-        }
-
-        /// <summary>穿透次数加法强化</summary>
-        public void AddPenetration(int count)
-        {
-            penetration += count;
-        }
-
-        /// <summary>射程乘法强化：子弹寿命 × factor（越大飞得越远）</summary>
-        public void AddBulletRange(float factor)
-        {
-            bulletLifetime *= factor;
-        }
-
-        /// <summary>暴击率加法强化，上限 60%（暴击卡调用）</summary>
+        /// <summary>暴击率加法强化，上限 60%</summary>
         public void AddCritChance(float amount)
         {
             critChance = Mathf.Min(0.6f, critChance + amount);
         }
 
-        /// <summary>暴击率是否已到上限（抽卡时用于排除零收益暴击卡）</summary>
+        /// <summary>暴击率是否已到上限</summary>
         public bool IsCritAtCap()
         {
             return critChance >= 0.6f;
@@ -198,7 +381,7 @@ namespace SurvivorDemo
         private Transform FindNearestEnemy()
         {
             // 查找场景里所有带 EnemyMovement 组件的物体（即所有敌人）
-            EnemyMovement[] enemies = FindObjectsOfType<EnemyMovement>();
+            EnemyMovement[] enemies = EnemyMovement.ActiveEnemies.ToArray();
 
             Transform nearest = null;
             float minDist = searchRadius; // 初始值 = 索敌范围，超出范围的忽略

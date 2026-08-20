@@ -33,6 +33,9 @@ namespace SurvivorDemo
         /// <summary>是否暴击（由 PlayerWeapon 发射时传入）</summary>
         private bool isCrit;
 
+        /// <summary>伤害来源（Player 的 GameObject，吸血用）</summary>
+        private GameObject source;
+
         /// <summary>飞行方向（由 PlayerWeapon 发射时传入）</summary>
         private Vector2 direction;
 
@@ -85,6 +88,12 @@ namespace SurvivorDemo
         public void SetCrit(bool value)
         {
             isCrit = value;
+        }
+
+        /// <summary>设置伤害来源（吸血用）</summary>
+        public void SetSource(GameObject src)
+        {
+            source = src;
         }
 
         /// <summary>
@@ -141,7 +150,7 @@ namespace SurvivorDemo
 
             // 记录本次命中并造成伤害
             hitEnemies.Add(enemy);
-            enemy.ReceiveDamage(damage, isCrit);
+            enemy.ReceiveDamage(damage, isCrit, source);
 
             // 还有穿透次数 → 继续飞行；否则销毁
             if (penetration > 0)

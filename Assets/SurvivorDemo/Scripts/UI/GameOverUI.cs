@@ -28,13 +28,6 @@ namespace SurvivorDemo
         /// <summary>结算面板根节点（初始隐藏）</summary>
         private GameObject panel;
 
-        /// <summary>
-        /// 金色外框（比面板大一圈，面板激活时露 12px 金边）。
-        /// 必须与面板同显同隐：单独激活时是 624×674 的实心金块，
-        /// 会盖住屏幕中央（玩家/升级三选一卡片），见 Phase5 bug。
-        /// </summary>
-        private GameObject frame;
-
         /// <summary>统计文字</summary>
         private Text timeText;
         private Text levelText;
@@ -97,7 +90,6 @@ namespace SurvivorDemo
 
             // 外框与面板同显
             panel.SetActive(true);
-            panel.transform.localScale = new Vector3(0.85f, 0.85f, 1f);
             StartCoroutine(ScaleIn());
         }
 
@@ -173,7 +165,7 @@ namespace SurvivorDemo
             if (panelBg != null)
             {
                 pImage.sprite = panelBg;
-                pImage.type = Image.Type.Sliced;
+                pImage.type = Image.Type.Simple;
                 pImage.color = Color.white;
             }
             else
@@ -185,43 +177,29 @@ namespace SurvivorDemo
 
             Font font = UIFont.Get();
 
-            // 5. 深红标题条（面板顶部）
-            RectTransform strip = CreatePanelRect(panel.transform, "TitleStrip", new Vector2(600f, 90f), new Vector2(0f, 325f - 45f));
-            Image stripImage = strip.gameObject.AddComponent<Image>();
-            stripImage.sprite = UIDungeonTheme.CreateGradientBorderSprite(new Color(0f, 0f, 0f, 0f), new Color(0.50f, 0.10f, 0.10f, 1f), new Color(0.35f, 0.05f, 0.05f, 1f), 64, 0);
-            stripImage.type = Image.Type.Sliced;
-            stripImage.color = Color.white;
-
-            // 6. 标题（深红条内，浅红大字）
+            // 5. 标题（面板顶部，浅红大字，直接放在 AI 背景上）
             GameObject titleObj = new GameObject("Title");
-            titleObj.transform.SetParent(strip.transform, false);
-
+            titleObj.transform.SetParent(panel.transform, false);
             RectTransform titleRect = titleObj.AddComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0.5f, 0.5f);
-            titleRect.anchorMax = new Vector2(0.5f, 0.5f);
-            titleRect.pivot = new Vector2(0.5f, 0.5f);
-            titleRect.anchoredPosition = Vector2.zero;
-            titleRect.sizeDelta = new Vector2(500f, 80f);
-
+            titleRect.anchorMin = new Vector2(0.5f, 1f);
+            titleRect.anchorMax = new Vector2(0.5f, 1f);
+            titleRect.pivot = new Vector2(0.5f, 1f);
+            titleRect.anchoredPosition = new Vector2(0f, -30f);
+            titleRect.sizeDelta = new Vector2(500f, 70f);
             Text title = titleObj.AddComponent<Text>();
             title.text = "游戏结束";
             title.font = font;
             title.fontSize = 36;
             title.alignment = TextAnchor.MiddleCenter;
-            title.color = new Color(1f, 0.35f, 0.35f); // 浅红
+            title.color = new Color(1f, 0.35f, 0.35f);
             AddOutline(title);
 
-            // 7. 三行统计（标题条下方，分级配色：时间白 / 等级浅蓝 / 击杀金）
+            // 6. 三行统计（标题下方，分级配色）
             timeText = CreateStatLine(panel.transform, font, "存活时间：--:--", 0.62f, Color.white);
-            levelText = CreateStatLine(panel.transform, font, "等级：-", 0.5f, new Color(0.5f, 0.9f, 1f));
+            levelText = CreateStatLine(panel.transform, font, "等级：-", 0.50f, new Color(0.5f, 0.9f, 1f));
             killsText = CreateStatLine(panel.transform, font, "击杀数：-", 0.38f, new Color(1f, 0.85f, 0.3f));
 
-            // 统计行之间的分隔线
-            CreateDivider(panel.transform, "Divider1", (0.56f - 0.5f) * 650f);
-            CreateDivider(panel.transform, "Divider2", (0.44f - 0.5f) * 650f);
-            CreateDivider(panel.transform, "Divider3", (0.29f - 0.5f) * 650f);
-
-            // 8. 构筑属性小字（击杀数下方，白 24 号，纯展示只读）
+            // 7. 构筑属性小字
             buildText = CreateBuildText(panel.transform, font);
 
             // 9. 重新开始按钮（AI 按钮背景图 + 金色文字 + 悬停效果）
@@ -276,25 +254,7 @@ namespace SurvivorDemo
             panel.SetActive(false);
         }
 
-        /// <summary>创建中心锚定的矩形（面板/条带用）</summary>
-        private static RectTransform CreatePanelRect(Transform parent, string name, Vector2 size, Vector2 center)
-        {
-            GameObject go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-
-            RectTransform rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = center;
-            return rect;
-        }
-
-        /// <summary>
-        /// 创建一行统计文字。
-        /// anchorY 指定文字在面板内的垂直位置（0 底部 ~ 1 顶部）。
-        /// </summary>
+        /// <summary>创建一行统计文字。</summary>
         private Text CreateStatLine(Transform parent, Font font, string content, float anchorY, Color color)
         {
             GameObject textObj = new GameObject("StatText");
@@ -350,17 +310,7 @@ namespace SurvivorDemo
             UIDungeonTheme.AddTextEffect(text);
         }
 
-        /// <summary>创建水平分隔线（两端渐隐金色）</summary>
-        private static void CreateDivider(Transform parent, string name, float yOffset)
-        {
-            RectTransform div = CreatePanelRect(parent, name, new Vector2(440f, 2f), new Vector2(0f, yOffset));
-            Image divImage = div.gameObject.AddComponent<Image>();
-            divImage.sprite = UIDungeonTheme.CreateDividerSprite(UIDungeonTheme.Divider);
-            divImage.color = Color.white;
-            divImage.raycastTarget = false;
-        }
-
-        /// <summary>拼装本局最终强化属性字符串（只读不改，纯展示）</summary>
+        /// <summary>拼装本局最终强化属性字符串</summary>
         private string BuildSummaryText()
         {
             if (weapon == null || stats == null)
@@ -368,7 +318,7 @@ namespace SurvivorDemo
 
             // 攻速用 1/攻击间隔 表示每秒攻击次数
             float fireRate = weapon.fireInterval > 0f ? 1f / weapon.fireInterval : 0f;
-            return $"伤害 {weapon.damage:0} · 攻速 ×{fireRate:0.0} · 子弹 {weapon.bulletCount} · 穿透 {weapon.penetration} · 暴击 {weapon.critChance * 100f:0}% · 经验 ×{stats.XPRate:0.0}";
+            return $"伤害 {weapon.damage:0} · 攻速 ×{fireRate:0.0} · 暴击 {weapon.critChance * 100f:0}% · 经验 ×{stats.XPRate:0.0} · 诅咒 {stats.curseValue} · 吸血 {stats.lifestealRate * 100f:0}%";
         }
     }
 }

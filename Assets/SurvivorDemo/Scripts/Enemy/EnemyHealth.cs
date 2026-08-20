@@ -48,6 +48,17 @@ namespace SurvivorDemo
         /// <summary>顿帧控制器引用（缓存在摄像机上，去掉每击 Camera.main 查找）</summary>
         private HitStopController hitStop;
 
+        /// <summary>缓存的 BossMonster 引用（避免每次 ReceiveDamage 都 GetComponent）</summary>
+        private BossMonster cachedBoss;
+
+        /// <summary>同帧命中计数器（超过阈值后跳过非关键 VFX，减少卡顿）</summary>
+        private static int frameHitCount;
+        private static int lastHitFrame;
+        private const int MaxVfxPerFrame = 8;
+
+        /// <summary>缓存的 SoulController 引用（灵魂生成用）</summary>
+        private static SoulController cachedSoulController;
+
         private void Awake()
         {
             currentHP = maxHP;
@@ -59,6 +70,7 @@ namespace SurvivorDemo
 
             // 缓存顿帧控制器：敌人生成时摄像机已存在（GameSetup.Awake 先创建）
             hitStop = Camera.main != null ? Camera.main.GetComponent<HitStopController>() : null;
+            cachedBoss = GetComponent<BossMonster>();
         }
 
         /// <summary>
@@ -78,7 +90,7 @@ namespace SurvivorDemo
         /// </summary>
         /// <param name="amount">伤害数值</param>
         /// <param name="isCrit">是否暴击（暴击特效更强）</param>
-        public void ReceiveDamage(float amount, bool isCrit = false)
+        public void ReceiveDamage(float amount, bool isCrit = false, GameObject source = null)
         {
             // 已死亡就不再受理伤害，防止同帧多颗子弹命中导致重复掉落
             if (isDead)
@@ -89,38 +101,59 @@ namespace SurvivorDemo
             // 本次是否击杀（用于决定顿帧/音效行为）
             bool isKill = currentHP <= 0f;
 
+            // 吸血：伤害来源有 lifesteal 则治疗来源玩家
+            if (source != null && !isKill)
+            {
+                PlayerStats sourceStats = source.GetComponentInParent<PlayerStats>();
+                if (sourceStats != null && sourceStats.lifestealRate > 0f)
+                    sourceStats.Heal(amount * sourceStats.lifestealRate);
+            }
+
             // 更新血条显示
             if (healthBar != null)
             {
                 healthBar.UpdateBar(currentHP, maxHP);
             }
 
-            // A1: 击中闪白
-            if (spriteRenderer != null)
+            // 同帧命中计数：超过阈值后跳过非关键 VFX，减少大量敌人时的卡顿
+            if (Time.frameCount != lastHitFrame)
+            {
+                lastHitFrame = Time.frameCount;
+                frameHitCount = 0;
+            }
+            frameHitCount++;
+            bool showVfx = frameHitCount <= MaxVfxPerFrame;
+
+            // A1: 击中闪白（超过阈值的非暴击跳过）
+            if (spriteRenderer != null && (showVfx || isCrit))
             {
                 if (flashCoroutine != null)
                     StopCoroutine(flashCoroutine);
                 flashCoroutine = StartCoroutine(FlashWhite());
             }
 
-            // A3: 击中光圈（暴击黄色）
-            CombatVFX.Instance?.SpawnHitRing(transform.position, isCrit ? Color.yellow : Color.white);
+            // A3 + F1: 光圈和伤害数字（超过阈值跳过，暴击始终显示）
+            if (showVfx || isCrit)
+            {
+                CombatVFX.Instance?.SpawnHitRing(transform.position, isCrit ? Color.yellow : Color.white);
+                CombatVFX.Instance?.SpawnDamageNumber(transform.position, amount, isCrit);
+            }
 
-            // F1: 伤害数字弹出（暴击更大更黄）
-            CombatVFX.Instance?.SpawnDamageNumber(transform.position, amount, isCrit);
+            // F6: 击中缩放反馈（超过阈值的非暴击跳过）
+            if (showVfx || isCrit)
+            {
+                if (punchCoroutine != null)
+                    StopCoroutine(punchCoroutine);
+                punchCoroutine = StartCoroutine(HitPunch(isCrit));
+            }
 
-            // F6: 击中缩放反馈（punch zoom）
-            if (punchCoroutine != null)
-                StopCoroutine(punchCoroutine);
-            punchCoroutine = StartCoroutine(HitPunch(isCrit));
-
-            // C2: 击中音效（击杀时跳过——死亡音效 Die() 里已有，避免双响）
-            if (!isKill)
+            // C2: 击中音效（超过阈值跳过，避免音频堆积）
+            if (!isKill && showVfx)
                 AudioManager.Instance?.PlaySFX(isCrit ? "crit_hit" : "hit", 0.5f);
 
             // E1: 顿帧——只在 暴击 / 击杀 / Boss 命中 时触发，普通命中不顿帧，
             //     防止高频命中把 timeScale 长时间钉在慢动作（触发间隔由 HitStopController 兜底）
-            bool isBoss = GetComponent<BossMonster>() != null;
+            bool isBoss = cachedBoss != null;
             if (isCrit || isKill || isBoss)
                 hitStop?.Stop(isCrit ? 0.08f : 0.04f);
 
@@ -141,6 +174,16 @@ namespace SurvivorDemo
             isDead = true;
             GameStats.kills++; // 计入全局击杀数（结算界面用，重开时归零）
             EnemySpawner.ActiveEnemyCount--; // 递减同屏怪物计数
+
+            // 灵魂生成检查：玩家有 SoulController 时按概率生成灵魂
+            if (cachedSoulController == null)
+            {
+                var player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null)
+                    cachedSoulController = player.GetComponent<SoulController>();
+            }
+            if (cachedSoulController != null)
+                cachedSoulController.OnEnemyKilled(transform.position);
 
             // 掉落经验宝珠，并把经验值设置到宝珠上
             if (xpOrbPrefab != null)

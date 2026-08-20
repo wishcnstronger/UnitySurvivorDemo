@@ -5,29 +5,26 @@ namespace SurvivorDemo
 {
     /// <summary>
     /// 升级流程管理器（挂在 Player 上）。
-    /// 检测待处理升级次数，暂停游戏并弹出三选一界面，应用选择结果。
-    /// 用 pendingLevelUps 计数 + 逐帧检查，不用事件总线。
+    /// 双池抽取（属性/机制）、刷新系统（每次升级 2 次刷新）、机制升级分发。
     /// </summary>
     public class LevelUpManager : MonoBehaviour
     {
-        /// <summary>玩家属性（升级次数、属性来源）</summary>
         public PlayerStats stats;
-
-        /// <summary>玩家武器（强化攻击）</summary>
         public PlayerWeapon weapon;
-
-        /// <summary>升级界面</summary>
         public UpgradeUI upgradeUI;
 
-        /// <summary>当前是否正在选择中（防止同一帧重复弹出）</summary>
         private bool isChoosing;
-
-        /// <summary>界面缺失错误只报一次，避免每帧刷屏</summary>
         private bool uiMissingLogged;
+
+        /// <summary>每次升级提供的刷新次数</summary>
+        private const int MaxRefreshPerLevel = 2;
+        private int refreshCharges;
+
+        /// <summary>当前三张卡（刷新时重新生成需要排除的类型列表）</summary>
+        private List<UpgradeConfig.UpgradeType> currentTypes = new List<UpgradeConfig.UpgradeType>();
 
         private void Awake()
         {
-            // 引用同挂载物体上的组件（GameSetup 已保证创建顺序）
             if (stats == null) stats = GetComponent<PlayerStats>();
             if (weapon == null) weapon = GetComponent<PlayerWeapon>();
             if (upgradeUI == null) upgradeUI = GetComponent<UpgradeUI>();
@@ -35,24 +32,16 @@ namespace SurvivorDemo
 
         private void Update()
         {
-            // 有待处理升级且当前没在选择中 → 触发升级
             if (!isChoosing && stats != null && stats.pendingLevelUps > 0)
             {
-                // 玩家已死亡时不弹升级：GameOverUI 已接管结算，
-                // 否则死亡当帧残留的待处理升级会在结算后再弹出一层升级面板
                 if (stats.CurrentHP <= 0f)
                     return;
-
                 StartLevelUp();
             }
         }
 
-        /// <summary>
-        /// 开始一次升级：暂停游戏，随机生成三张卡，交给界面展示。
-        /// </summary>
         private void StartLevelUp()
         {
-            // 界面缺失时无法展示，报错（只报一次）避免卡死
             if (upgradeUI == null)
             {
                 if (!uiMissingLogged)
@@ -64,247 +53,223 @@ namespace SurvivorDemo
             }
 
             isChoosing = true;
-
-            // 暂停游戏：timeScale = 0 时其他脚本 deltaTime ≈ 0，天然静止
             Time.timeScale = 0f;
 
-            
+            refreshCharges = MaxRefreshPerLevel;
+            GenerateChoices();
+            upgradeUI.SetRefreshCharges(refreshCharges, OnRefreshClicked);
+        }
 
+        /// <summary>生成三张不重复的卡</summary>
+        private void GenerateChoices()
+        {
+            currentTypes.Clear();
+            float gameTime = GameStats.playTime;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            // 随机生成 3 张卡，保证类型不重复，且最多 1 张红卡
-            List<UpgradeConfig.UpgradeDefinition> choices = new List<UpgradeConfig.UpgradeDefinition>();
-            bool hasRedCard = false;
             for (int i = 0; i < 3; i++)
             {
-                UpgradeConfig.UpgradeDefinition choice;
+                UpgradeConfig.UpgradeType choice;
                 int attempts = 0;
                 do
                 {
-                    choice = RollUsableChoice();
+                    var def = UpgradeConfig.RollChoice(BuildPickCounts(), gameTime);
+                    choice = def.type;
                     attempts++;
                 }
-                while ((TypeAlreadyInList(choices, choice.type) ||
-                       (choice.rarity == UpgradeConfig.Rarity.Red && hasRedCard))
-                       && attempts < 10);
+                while (currentTypes.Contains(choice) && attempts < 20);
 
-                if (choice.rarity == UpgradeConfig.Rarity.Red)
-                    hasRedCard = true;
-
-                choices.Add(choice);
+                currentTypes.Add(choice);
             }
 
-            // 交给界面展示，等待玩家选择
+            var choices = new List<UpgradeConfig.UpgradeDefinition>();
+            foreach (var t in currentTypes)
+                choices.Add(new UpgradeConfig.UpgradeDefinition(t));
+
             upgradeUI.Show(choices, OnChoiceSelected);
         }
 
-        /// <summary>
-        /// 玩家选择一张卡后调用：应用强化 → 消耗次数 → 恢复游戏。
-        /// 若还有待处理升级，下一帧 Update 会自动再弹。
-        /// </summary>
+        /// <summary>刷新按钮回调：重新生成三张卡</summary>
+        public void OnRefreshClicked()
+        {
+            if (refreshCharges <= 0) return;
+            refreshCharges--;
+            GenerateChoices();
+            upgradeUI.SetRefreshCharges(refreshCharges, OnRefreshClicked);
+        }
+
         private void OnChoiceSelected(UpgradeConfig.UpgradeDefinition def)
         {
-            // 按类型应用强化
-            ApplyUpgrade(def);
+            ApplyUpgrade(def.type);
 
-            // 消耗一次待处理升级
             if (stats != null)
-            {
                 stats.ConsumePendingLevelUp();
-            }
 
-            // 玩家已在选择期间死亡（timeScale=0 暂停时物理回调仍会触发）
-            // → 不恢复游戏，结算界面保持显示
             if (stats != null && stats.CurrentHP <= 0f)
                 return;
 
-            // 恢复游戏
             isChoosing = false;
             Time.timeScale = 1f;
         }
 
-        /// <summary>
-        /// 随机一张升级卡；若抽到攻速卡但攻速已到上限（零收益），重摇换成其他类型。
-        /// 最多重摇 5 次，避免极端情况下无限循环。
-        /// </summary>
-        private UpgradeConfig.UpgradeDefinition RollUsableChoice()
+        /// <summary>按类型应用升级</summary>
+        private void ApplyUpgrade(UpgradeConfig.UpgradeType type)
         {
-            for (int attempt = 0; attempt < 5; attempt++)
+            if (stats == null) return;
+
+            int level = stats.GetPickCount(type); // 当前等级（0=首次）
+            int nextLevel = level + 1;
+            var data = UpgradeConfig.GetLevelData(type);
+            float value = UpgradeConfig.GetValue(type, nextLevel);
+
+            if (data.category == UpgradeConfig.UpgradeCategory.Stat)
             {
-                UpgradeConfig.UpgradeDefinition def = UpgradeConfig.RollChoice(BuildPickCounts());
-                bool fireRateAtCap = def.type == UpgradeConfig.UpgradeType.FireRate
-                                     && weapon != null
-                                     && weapon.IsFireRateAtCap();
-                bool armorAtCap = def.type == UpgradeConfig.UpgradeType.Armor
-                                  && stats != null
-                                  && stats.IsArmorAtCap();
-                bool critAtCap = def.type == UpgradeConfig.UpgradeType.Crit
-                                 && weapon != null
-                                 && weapon.IsCritAtCap();
-                if (!fireRateAtCap && !armorAtCap && !critAtCap)
-                    return def;
+                ApplyStatUpgrade(type, value);
             }
-            // 多次重摇仍未避开（理论上不会出现），接受最后一次结果
-            
+            else if (data.category == UpgradeConfig.UpgradeCategory.Core)
+            {
+                ApplyCoreUpgrade(type);
+            }
+            else
+            {
+                ApplyMechanicUpgrade(type, nextLevel);
+            }
 
+            // 诅咒
+            if (data.curseCost > 0)
+                stats.AddCurse(data.curseCost);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            return UpgradeConfig.RollChoice(BuildPickCounts());
+            stats.RecordPick(type);
         }
 
-        /// <summary>检查类型是否已在列表中（用于保证三张卡不重复）</summary>
-        private static bool TypeAlreadyInList(List<UpgradeConfig.UpgradeDefinition> list, UpgradeConfig.UpgradeType type)
+        /// <summary>属性升级分发</summary>
+        private void ApplyStatUpgrade(UpgradeConfig.UpgradeType type, float value)
         {
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (list[i].type == type)
-                    return true;
-            }
-            return false;
-        }
-
-        /// <summary>根据升级类型调用对应的强化方法</summary>
-        private void ApplyUpgrade(UpgradeConfig.UpgradeDefinition def)
-        {
-            // 防御：属性缺失时直接返回（生命/护甲升级只需 stats，不需 weapon）
-            if (stats == null)
-                return;
-
-            float value = UpgradeConfig.GetValue(def);
-
-            switch (def.type)
+            switch (type)
             {
                 case UpgradeConfig.UpgradeType.FireRate:
                     if (weapon != null) weapon.AddFireRateMultiplier(value);
                     break;
-
-                case UpgradeConfig.UpgradeType.BulletCount:
-                    if (weapon != null) weapon.AddBulletCount((int)value);
-                    break;
-
-                case UpgradeConfig.UpgradeType.Penetration:
-                    if (weapon != null) weapon.AddPenetration((int)value);
-                    break;
-
                 case UpgradeConfig.UpgradeType.Damage:
                     if (weapon != null) weapon.AddDamage(value);
                     break;
-
                 case UpgradeConfig.UpgradeType.MoveSpeed:
                     stats.AddMoveSpeedMultiplier(value);
                     break;
-
                 case UpgradeConfig.UpgradeType.MaxHP:
                     stats.AddMaxHP(value);
                     break;
-
                 case UpgradeConfig.UpgradeType.Armor:
                     stats.AddArmor(value);
                     break;
-
                 case UpgradeConfig.UpgradeType.MagnetRange:
                     stats.AddMagnetRange(value);
                     break;
-
-                case UpgradeConfig.UpgradeType.Range:
-                    if (weapon != null) weapon.AddBulletRange(value);
-                    break;
-
                 case UpgradeConfig.UpgradeType.XPBoost:
                     stats.AddXPRate(value);
                     break;
-
                 case UpgradeConfig.UpgradeType.Crit:
                     if (weapon != null) weapon.AddCritChance(value);
                     break;
             }
-
-            // 记录本次选择（构筑倾向统计，抽卡加权时偏向已选流派）
-            stats.RecordPick(def.type);
         }
 
-        /// <summary>
-        /// 开局初始三选一（Start 按钮点击后调用）。
-        /// 完全复用 OnChoiceSelected 回调路径，不新增选择状态。
-        /// 调用时 timeScale 仍为 0（开始界面暂停中），选完 OnChoiceSelected 才恢复游戏。
-        /// </summary>
+        /// <summary>核心机制升级分发</summary>
+        private void ApplyCoreUpgrade(UpgradeConfig.UpgradeType type)
+        {
+            switch (type)
+            {
+                case UpgradeConfig.UpgradeType.DeathLight:
+                    if (weapon != null) weapon.UnlockDeathLight();
+                    break;
+            }
+        }
+
+        /// <summary>机制升级分发</summary>
+        private void ApplyMechanicUpgrade(UpgradeConfig.UpgradeType type, int level)
+        {
+            switch (type)
+            {
+                // === 灵魂流 ===
+                case UpgradeConfig.UpgradeType.SoulHarvest:
+                {
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl == null) ctrl = gameObject.AddComponent<SoulController>();
+                    ctrl.SetLevel(level);
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.SoulPower:
+                {
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl != null) ctrl.SetPowerLevel(level);
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.SoulChain:
+                {
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl != null) ctrl.SetChainLevel(level);
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.SoulSwarm:
+                {
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl != null) ctrl.SetSwarmLevel(level);
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.SoulCurse:
+                {
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl != null) ctrl.ActivateCurse();
+                    break;
+                }
+
+                // === 收割流 ===
+                case UpgradeConfig.UpgradeType.ScytheUnlock:
+                {
+                    var ctrl = GetComponent<ScytheController>();
+                    if (ctrl == null) ctrl = gameObject.AddComponent<ScytheController>();
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.ScytheRange:
+                {
+                    var ctrl = GetComponent<ScytheController>();
+                    if (ctrl != null) ctrl.SetRangeLevel(level);
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.ScytheDamage:
+                {
+                    var ctrl = GetComponent<ScytheController>();
+                    if (ctrl != null) ctrl.SetDamageLevel(level);
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.ScytheSpeed:
+                {
+                    var ctrl = GetComponent<ScytheController>();
+                    if (ctrl != null) ctrl.SetSpeedLevel(level);
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.Lifesteal:
+                {
+                    stats.AddLifesteal(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+
+                // === 光束强化 ===
+                case UpgradeConfig.UpgradeType.BeamCount:
+                {
+                    if (weapon != null)
+                        weapon.SetBeamCount((int)UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.BeamRadius:
+                {
+                    if (weapon != null)
+                        weapon.SetBeamRadius(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+            }
+        }
+
+        /// <summary>开局初始三选一</summary>
         public void ShowInitialChoice()
         {
             if (upgradeUI == null)
@@ -317,21 +282,22 @@ namespace SurvivorDemo
                 return;
             }
 
-            // 置位选择中，防止与升级流程冲突
             isChoosing = true;
+            refreshCharges = MaxRefreshPerLevel;
 
-            // 三张固定卡：攻势（攻击力）/ 弹幕（子弹数量）/ 生存（生命）
-            List<UpgradeConfig.UpgradeDefinition> choices = new List<UpgradeConfig.UpgradeDefinition>
+            currentTypes.Clear();
+            var choices = new List<UpgradeConfig.UpgradeDefinition>
             {
-                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.Damage, UpgradeConfig.Rarity.Green),
-                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.BulletCount, UpgradeConfig.Rarity.Red),
-                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.MaxHP, UpgradeConfig.Rarity.Blue)
+                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.Damage),
+                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.SoulHarvest),
+                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.MaxHP)
             };
+            foreach (var c in choices) currentTypes.Add(c.type);
 
+            upgradeUI.SetRefreshCharges(refreshCharges, OnRefreshClicked);
             upgradeUI.Show(choices, OnChoiceSelected);
         }
 
-        /// <summary>把玩家每种升级类型的选择次数打包成数组（RollChoice 加权用）</summary>
         private int[] BuildPickCounts()
         {
             int[] counts = new int[UpgradeConfig.TypeCount];
