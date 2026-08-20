@@ -72,7 +72,7 @@ namespace SurvivorDemo
                 int attempts = 0;
                 do
                 {
-                    var def = UpgradeConfig.RollChoice(BuildPickCounts(), gameTime);
+                    var def = UpgradeConfig.RollChoice(BuildPickCounts(), gameTime, stats != null ? stats.curseValue : 0);
                     choice = def.type;
                     attempts++;
                 }
@@ -127,7 +127,7 @@ namespace SurvivorDemo
             }
             else if (data.category == UpgradeConfig.UpgradeCategory.Core)
             {
-                ApplyCoreUpgrade(type);
+                ApplyCoreUpgrade(type, nextLevel);
             }
             else if (data.category == UpgradeConfig.UpgradeCategory.Curse)
             {
@@ -178,13 +178,20 @@ namespace SurvivorDemo
         }
 
         /// <summary>核心机制升级分发</summary>
-        private void ApplyCoreUpgrade(UpgradeConfig.UpgradeType type)
+        private void ApplyCoreUpgrade(UpgradeConfig.UpgradeType type, int level)
         {
             switch (type)
             {
                 case UpgradeConfig.UpgradeType.DeathLight:
                     if (weapon != null) weapon.UnlockDeathLight();
                     break;
+                case UpgradeConfig.UpgradeType.SoulHarvest:
+                {
+                    var ctrl = GetComponent<SoulController>();
+                    if (ctrl == null) ctrl = gameObject.AddComponent<SoulController>();
+                    ctrl.SetLevel(level);
+                    break;
+                }
                 case UpgradeConfig.UpgradeType.DeathDescend:
                     if (GetComponent<DeathDescendController>() == null)
                         gameObject.AddComponent<DeathDescendController>();
@@ -197,14 +204,7 @@ namespace SurvivorDemo
         {
             switch (type)
             {
-                // === 灵魂流 ===
-                case UpgradeConfig.UpgradeType.SoulHarvest:
-                {
-                    var ctrl = GetComponent<SoulController>();
-                    if (ctrl == null) ctrl = gameObject.AddComponent<SoulController>();
-                    ctrl.SetLevel(level);
-                    break;
-                }
+                // === 灵魂流（SoulHarvest 已移至 Core） ===
                 case UpgradeConfig.UpgradeType.SoulPower:
                 {
                     var ctrl = GetComponent<SoulController>();
@@ -294,6 +294,30 @@ namespace SurvivorDemo
                     if (ctrl != null) ctrl.SetExplosionLevel(level);
                     break;
                 }
+
+                // === 光束攻速 ===
+                case UpgradeConfig.UpgradeType.BeamSpeed:
+                {
+                    if (weapon != null)
+                        weapon.AddFireRateMultiplier(1f + UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+
+                // === 技能流强化 ===
+                case UpgradeConfig.UpgradeType.ScytheCooldown:
+                {
+                    var ctrl = GetComponent<ScytheController>();
+                    if (ctrl != null)
+                        ctrl.SetCooldownReduction(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.DeathCooldown:
+                {
+                    var ctrl = GetComponent<DeathDescendController>();
+                    if (ctrl != null)
+                        ctrl.SetCooldownReduction(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
             }
         }
 
@@ -334,10 +358,44 @@ namespace SurvivorDemo
                     stats.AddArmor(level * 5);
                     break;
                 }
+
+                // === 诅咒阈值解锁升级 ===
+                case UpgradeConfig.UpgradeType.ForbiddenKnowledge:
+                {
+                    // 经验获取 +100% per level
+                    stats.AddXPRate(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.GraspOfDeath:
+                {
+                    // 吸血率 +15% per level
+                    stats.AddLifesteal(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.Calamity:
+                {
+                    // 全局伤害 +80% per level
+                    if (weapon != null)
+                        weapon.AddDamagePercent(UpgradeConfig.GetValue(type, level));
+                    break;
+                }
+                case UpgradeConfig.UpgradeType.DefyFate:
+                {
+                    // 免疫终焉 + 全属性大幅提升
+                    stats.curseImmune = true;
+                    stats.AddMaxHP(200f);
+                    stats.AddArmor(10);
+                    if (weapon != null)
+                    {
+                        weapon.AddDamagePercent(1f);
+                        weapon.AddFireRateMultiplier(1.5f);
+                    }
+                    break;
+                }
             }
         }
 
-        /// <summary>开局初始三选一</summary>
+        /// <summary>开局 Core 三选一：死神之光 / 亡魂契约 / 死神降临</summary>
         public void ShowInitialChoice()
         {
             if (upgradeUI == null)
@@ -351,18 +409,18 @@ namespace SurvivorDemo
             }
 
             isChoosing = true;
-            refreshCharges = MaxRefreshPerLevel;
+            refreshCharges = 0; // 开局不允许刷新
 
             currentTypes.Clear();
             var choices = new List<UpgradeConfig.UpgradeDefinition>
             {
-                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.Damage),
+                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.DeathLight),
                 new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.SoulHarvest),
-                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.MaxHP)
+                new UpgradeConfig.UpgradeDefinition(UpgradeConfig.UpgradeType.DeathDescend)
             };
             foreach (var c in choices) currentTypes.Add(c.type);
 
-            upgradeUI.SetRefreshCharges(refreshCharges, OnRefreshClicked);
+            upgradeUI.SetRefreshCharges(0, null);
             upgradeUI.Show(choices, OnChoiceSelected);
         }
 

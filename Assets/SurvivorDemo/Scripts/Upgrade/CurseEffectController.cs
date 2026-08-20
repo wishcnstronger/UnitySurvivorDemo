@@ -79,8 +79,8 @@ namespace SurvivorDemo
 
             overlay.color = new Color(OverlayColor.r, OverlayColor.g, OverlayColor.b, baseAlpha);
 
-            // 终焉 chip damage
-            if (curse >= 100 && stats.CurrentHP > 0f)
+            // 终焉 chip damage（逆命免疫）
+            if (curse >= 100 && stats.CurrentHP > 0f && !stats.curseImmune)
             {
                 chipTimer += Time.deltaTime;
                 if (chipTimer >= 1f)

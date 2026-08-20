@@ -50,6 +50,9 @@ namespace SurvivorDemo
         [Tooltip("吸血率（所有伤害的百分比转化为生命）")]
         public float lifestealRate = 0f;
 
+        /// <summary>是否免疫终焉状态（逆命升级激活）</summary>
+        public bool curseImmune = false;
+
         /// <summary>待处理的升级次数</summary>
         public int pendingLevelUps = 0;
 

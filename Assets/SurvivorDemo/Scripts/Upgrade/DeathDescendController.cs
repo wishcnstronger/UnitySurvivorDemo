@@ -9,8 +9,8 @@ namespace SurvivorDemo
     /// </summary>
     public class DeathDescendController : MonoBehaviour
     {
-        /// <summary>死亡波触发间隔（秒）</summary>
-        private const float WaveInterval = 30f;
+        /// <summary>死亡波触发间隔（秒，可被升级降低）</summary>
+        public float waveInterval = 30f;
 
         /// <summary>死亡波视觉扩张最大半径</summary>
         private const float WaveMaxRadius = 30f;
@@ -35,10 +35,22 @@ namespace SurvivorDemo
             weapon = GetComponent<PlayerWeapon>();
         }
 
+        /// <summary>减少剩余冷却时间（镰刀击杀调用）</summary>
+        public void ReduceCooldown(float seconds)
+        {
+            timer += seconds;
+        }
+
+        /// <summary>设置基础冷却降低百分比（终焉冷却升级调用）</summary>
+        public void SetCooldownReduction(float percent)
+        {
+            waveInterval = 30f * (1f - percent);
+        }
+
         private void Update()
         {
             timer += Time.deltaTime;
-            if (timer >= WaveInterval)
+            if (timer >= waveInterval)
             {
                 TriggerDeathWave();
                 timer = 0f;

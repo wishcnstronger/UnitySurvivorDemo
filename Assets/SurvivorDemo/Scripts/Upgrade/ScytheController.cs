@@ -18,6 +18,10 @@ namespace SurvivorDemo
         private float timer;
         private PlayerWeapon weapon;
         private PlayerStats stats;
+        private DeathDescendController deathDescend;
+
+        /// <summary>镰刀击杀减技能CD秒数（0=未升级）</summary>
+        private float scytheCooldownReduction;
 
         /// <summary>挥砍特效预制体（程序化生成，首次挥砍时创建）</summary>
         private static Sprite slashSprite;
@@ -26,6 +30,7 @@ namespace SurvivorDemo
         {
             weapon = GetComponent<PlayerWeapon>();
             stats = GetComponent<PlayerStats>();
+            deathDescend = GetComponent<DeathDescendController>();
         }
 
         private void Update()
@@ -49,7 +54,7 @@ namespace SurvivorDemo
             else
                 swingDir = Vector2.up;
 
-            var enemies = EnemyMovement.ActiveEnemies;
+            var enemies = EnemyMovement.ActiveEnemies.ToArray();
             float baseDamage = weapon != null ? weapon.damage : 1f;
             float scytheDamage = baseDamage * damageMultiplier;
 
@@ -72,6 +77,10 @@ namespace SurvivorDemo
                 {
                     health.ReceiveDamage(scytheDamage, isCrit, gameObject);
                     hitAny = true;
+
+                    // 镰刀击杀减技能CD
+                    if (scytheCooldownReduction > 0f && health.IsDead && deathDescend != null)
+                        deathDescend.ReduceCooldown(scytheCooldownReduction);
                 }
             }
 
@@ -168,7 +177,7 @@ namespace SurvivorDemo
 
         private Transform FindNearestEnemy()
         {
-            var enemies = EnemyMovement.ActiveEnemies;
+            var enemies = EnemyMovement.ActiveEnemies.ToArray();
             Transform nearest = null;
             float minDist = float.MaxValue;
 
@@ -189,5 +198,6 @@ namespace SurvivorDemo
         public void SetRangeLevel(int level) { range = 3.0f + 0.5f * level; }
         public void SetDamageLevel(int level) { damageMultiplier = 1.2f + 0.3f * level; }
         public void SetSpeedLevel(int level) { interval = Mathf.Max(0.3f, 1.5f * (1f - 0.1f * level)); }
+        public void SetCooldownReduction(float amount) { scytheCooldownReduction = amount; }
     }
 }

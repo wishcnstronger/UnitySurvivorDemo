@@ -258,10 +258,12 @@ namespace SurvivorDemo
                     }
                 }
 
-                // 确保 LineRenderer 池足够
+                // 确保 LineRenderer 池足够（每个光束用独立子物体，避免 AddComponent 冲突）
                 while (beamLines.Count <= i)
                 {
-                    LineRenderer lr = gameObject.AddComponent<LineRenderer>();
+                    GameObject beamObj = new GameObject("Beam" + beamLines.Count);
+                    beamObj.transform.SetParent(transform, false);
+                    LineRenderer lr = beamObj.AddComponent<LineRenderer>();
                     lr.material = new Material(Shader.Find("Sprites/Default"));
                     lr.sortingOrder = 15;
                     lr.enabled = false;

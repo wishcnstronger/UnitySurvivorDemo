@@ -61,11 +61,16 @@ namespace SurvivorDemo
             ForbiddenKnowledge = 29,
             GraspOfDeath = 30,
             Calamity = 31,
-            DefyFate = 32
+            DefyFate = 32,
+            // === 光束攻速 ===
+            BeamSpeed = 33,
+            // === 技能流强化 ===
+            ScytheCooldown = 34,
+            DeathCooldown = 35
         }
 
         /// <summary>升级类型总数（pickCounts 数组长度用）</summary>
-        public static int TypeCount => (int)UpgradeType.DefyFate + 1;
+        public static int TypeCount => (int)UpgradeType.DeathCooldown + 1;
 
         /// <summary>一张升级卡片的内容：类型（无稀有度）</summary>
         public struct UpgradeDefinition
@@ -103,7 +108,7 @@ namespace SurvivorDemo
                 case UpgradeType.Crit:        return new UpgradeLevelData { maxLevel = 99, curseCost = 0, category = UpgradeCategory.Stat };
 
                 // --- 灵魂流机制 ---
-                case UpgradeType.SoulHarvest:  return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic };
+                case UpgradeType.SoulHarvest:  return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Core };
                 case UpgradeType.SoulPower:    return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 1 };
                 case UpgradeType.SoulChain:    return new UpgradeLevelData { maxLevel = 5, curseCost = 2, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 3 };
                 case UpgradeType.SoulSwarm:    return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.SoulHarvest, prerequisiteLevel = 1 };
@@ -142,6 +147,13 @@ namespace SurvivorDemo
                 case UpgradeType.GraspOfDeath:    return new UpgradeLevelData { maxLevel = 3, curseCost = 10, category = UpgradeCategory.Curse, curseThreshold = 40 };
                 case UpgradeType.Calamity:       return new UpgradeLevelData { maxLevel = 3, curseCost = 15, category = UpgradeCategory.Curse, curseThreshold = 60 };
                 case UpgradeType.DefyFate:       return new UpgradeLevelData { maxLevel = 1, curseCost = 20, category = UpgradeCategory.Curse, curseThreshold = 80 };
+
+                // --- 光束攻速 ---
+                case UpgradeType.BeamSpeed:     return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.DeathLight, prerequisiteLevel = 1 };
+
+                // --- 技能流强化 ---
+                case UpgradeType.ScytheCooldown: return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.ScytheUnlock, prerequisiteLevel = 1 };
+                case UpgradeType.DeathCooldown:  return new UpgradeLevelData { maxLevel = 5, curseCost = 0, category = UpgradeCategory.Mechanic, prerequisite = UpgradeType.DeathDescend, prerequisiteLevel = 1 };
 
                 default: return new UpgradeLevelData { maxLevel = 1, curseCost = 0, category = UpgradeCategory.Stat };
             }
@@ -227,6 +239,13 @@ namespace SurvivorDemo
                 case UpgradeType.Calamity:       return 0.8f * level;                  // 伤害百分比加成（Lv1=+80%, Lv2=+160%, Lv3=+240%）
                 case UpgradeType.DefyFate:       return 1f;                            // 标记
 
+                // --- 光束攻速 ---
+                case UpgradeType.BeamSpeed:     return 0.1f * level;                   // 攻速提升百分比（Lv1=+10%, Lv5=+50%）
+
+                // --- 技能流强化 ---
+                case UpgradeType.ScytheCooldown: return 0.3f + 0.25f * (level - 1);    // 镰刀击杀减CD秒数（Lv1=0.3s, Lv5=1.3s）
+                case UpgradeType.DeathCooldown:  return 0.08f * level;                 // 基础CD降低百分比（Lv1=8%, Lv5=40%）
+
                 default: return 0f;
             }
         }
@@ -271,6 +290,9 @@ namespace SurvivorDemo
                 case UpgradeType.GraspOfDeath:    return "死亡之握";
                 case UpgradeType.Calamity:       return "灾厄";
                 case UpgradeType.DefyFate:       return "逆命";
+                case UpgradeType.BeamSpeed:     return "死亡急速";
+                case UpgradeType.ScytheCooldown: return "死神回响";
+                case UpgradeType.DeathCooldown:  return "终焉冷却";
                 default: return "";
             }
         }
@@ -320,6 +342,9 @@ namespace SurvivorDemo
                 case UpgradeType.GraspOfDeath:    return $"吸血率 +{value * 100f:0}%\n需诅咒 ≥{GetLevelData(type).curseThreshold}\n诅咒 +{GetLevelData(type).curseCost}";
                 case UpgradeType.Calamity:       return $"全局伤害 +{value * 100f:0}%\n需诅咒 ≥{GetLevelData(type).curseThreshold}\n诅咒 +{GetLevelData(type).curseCost}";
                 case UpgradeType.DefyFate:       return $"免疫终焉状态\n全属性大幅提升\n需诅咒 ≥{GetLevelData(type).curseThreshold}\n诅咒 +{GetLevelData(type).curseCost}";
+                case UpgradeType.BeamSpeed:     return $"光束攻速 +{value * 100f:0}%";
+                case UpgradeType.ScytheCooldown: return $"镰刀击杀减技能 CD {value:0.#}s";
+                case UpgradeType.DeathCooldown:  return $"死神降临冷却 -{value * 100f:0}%";
 
                 default: return "";
             }
@@ -338,65 +363,92 @@ namespace SurvivorDemo
         /// <summary>机制池中的类型</summary>
         private static readonly UpgradeType[] mechanicPool =
         {
-            UpgradeType.SoulHarvest, UpgradeType.SoulPower, UpgradeType.SoulChain,
+            UpgradeType.SoulPower, UpgradeType.SoulChain,
             UpgradeType.SoulSwarm, UpgradeType.SoulCurse,
+            UpgradeType.SoulMultiply, UpgradeType.SoulExplosion,
             UpgradeType.ScytheUnlock, UpgradeType.ScytheRange, UpgradeType.ScytheDamage,
             UpgradeType.ScytheSpeed, UpgradeType.Lifesteal,
+            UpgradeType.ScytheCooldown, UpgradeType.DeathCooldown,
             UpgradeType.BeamCount, UpgradeType.BeamRadius,
-            UpgradeType.BeamRefraction,
-            UpgradeType.SoulMultiply, UpgradeType.SoulExplosion
+            UpgradeType.BeamRefraction, UpgradeType.BeamSpeed
         };
 
-        /// <summary>核心机制池（当前为空，后续添加死神之光/亡魂契约/死神降临）</summary>
-        private static readonly UpgradeType[] corePool = { UpgradeType.DeathLight, UpgradeType.DeathDescend };
+        /// <summary>核心机制池</summary>
+        private static readonly UpgradeType[] corePool = { UpgradeType.DeathLight, UpgradeType.SoulHarvest, UpgradeType.DeathDescend };
 
-        /// <summary>诅咒池（当前为空，后续添加跨流派诅咒升级）</summary>
+        /// <summary>诅咒池（跨流派强力升级 + 阈值解锁）</summary>
         private static readonly UpgradeType[] cursePool =
         {
             UpgradeType.CurseDamage, UpgradeType.CurseBeam,
-            UpgradeType.CurseSoul, UpgradeType.CurseSurvival
+            UpgradeType.CurseSoul, UpgradeType.CurseSurvival,
+            UpgradeType.ForbiddenKnowledge, UpgradeType.GraspOfDeath,
+            UpgradeType.Calamity, UpgradeType.DefyFate
         };
 
         /// <summary>
         /// 四池随机抽取。
-        /// 前 5 分钟：属性 60% / 机制 40%；5 分钟后：各 50%。
-        /// Core 和 Curse 池当前为空，抽取时自动跳过回退到属性池。
+        /// 前 5 分钟：Stat 40% / Mechanic 35% / Core 15% / Curse 10%
+        /// 5 分钟后：Stat 35% / Mechanic 40% / Core 10% / Curse 15%
         /// 满级和前置不满足的升级从池中排除。
         /// </summary>
-        public static UpgradeDefinition RollChoice(int[] pickCounts, float gameTime)
+        public static UpgradeDefinition RollChoice(int[] pickCounts, float gameTime, int curseValue)
         {
-            // 决定抽哪个池
-            float mechanicWeight = gameTime < 300f ? 40f : 50f;
-            bool rollMechanic = Random.Range(0f, 100f) < mechanicWeight;
+            bool earlyGame = gameTime < 300f;
 
-            if (rollMechanic)
+            // 权重表
+            float statWeight      = earlyGame ? 40f : 35f;
+            float mechanicWeight  = earlyGame ? 35f : 40f;
+            float coreWeight      = earlyGame ? 15f : 10f;
+            float curseWeight     = earlyGame ? 10f : 15f;
+            float total           = statWeight + mechanicWeight + coreWeight + curseWeight;
+
+            float roll = Random.Range(0f, total);
+            float cumulative = 0f;
+
+            // Stat 池
+            cumulative += statWeight;
+            if (roll < cumulative)
             {
-                var available = GetAvailableFromPool(mechanicPool, pickCounts);
+                var available = GetAvailableFromPool(statPool, pickCounts, curseValue);
                 if (available.Count > 0)
                     return new UpgradeDefinition(available[Random.Range(0, available.Count)]);
             }
 
-            // 尝试 Core 池（当前为空，自动跳过）
-            var availableCore = GetAvailableFromPool(corePool, pickCounts);
-            if (availableCore.Count > 0 && Random.Range(0f, 100f) < 15f)
-                return new UpgradeDefinition(availableCore[Random.Range(0, availableCore.Count)]);
+            // Mechanic 池
+            cumulative += mechanicWeight;
+            if (roll < cumulative)
+            {
+                var available = GetAvailableFromPool(mechanicPool, pickCounts, curseValue);
+                if (available.Count > 0)
+                    return new UpgradeDefinition(available[Random.Range(0, available.Count)]);
+            }
 
-            // 尝试 Curse 池（当前为空，自动跳过）
-            var availableCurse = GetAvailableFromPool(cursePool, pickCounts);
-            if (availableCurse.Count > 0 && Random.Range(0f, 100f) < 10f)
-                return new UpgradeDefinition(availableCurse[Random.Range(0, availableCurse.Count)]);
+            // Core 池
+            cumulative += coreWeight;
+            if (roll < cumulative)
+            {
+                var available = GetAvailableFromPool(corePool, pickCounts, curseValue);
+                if (available.Count > 0)
+                    return new UpgradeDefinition(available[Random.Range(0, available.Count)]);
+            }
 
-            // 退回属性池
-            var availableStats = GetAvailableFromPool(statPool, pickCounts);
-            if (availableStats.Count > 0)
-                return new UpgradeDefinition(availableStats[Random.Range(0, availableStats.Count)]);
+            // Curse 池
+            {
+                var available = GetAvailableFromPool(cursePool, pickCounts, curseValue);
+                if (available.Count > 0)
+                    return new UpgradeDefinition(available[Random.Range(0, available.Count)]);
+            }
 
-            // 属性池也空了（理论上不会）→ 随便给一个
+            // 全部池都空了 → 退回属性池
+            var fallback = GetAvailableFromPool(statPool, pickCounts, curseValue);
+            if (fallback.Count > 0)
+                return new UpgradeDefinition(fallback[Random.Range(0, fallback.Count)]);
+
             return new UpgradeDefinition(UpgradeType.Damage);
         }
 
         /// <summary>从指定池中获取可用升级（排除满级 + 前置不满足的）</summary>
-        private static List<UpgradeType> GetAvailableFromPool(UpgradeType[] pool, int[] pickCounts)
+        private static List<UpgradeType> GetAvailableFromPool(UpgradeType[] pool, int[] pickCounts, int curseValue)
         {
             var result = new List<UpgradeType>();
             foreach (var type in pool)
@@ -412,6 +464,9 @@ namespace SurvivorDemo
                     if (prereqLevel < data.prerequisiteLevel)
                         continue;
                 }
+                // 检查诅咒阈值
+                if (data.curseThreshold > 0 && curseValue < data.curseThreshold)
+                    continue;
                 result.Add(type);
             }
             return result;
